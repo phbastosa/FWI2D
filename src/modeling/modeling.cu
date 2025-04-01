@@ -83,8 +83,7 @@ void Modeling::set_specifications()
 
 void Modeling::set_wavelet()
 {
-    float * signal_aux1 = new float[nt]();
-    float * signal_aux2 = new float[nt]();
+    float * signal_aux = new float[nt]();
 
     float t0 = 2.0f*sqrtf(M_PI) / fmax;
     float fc = fmax / (3.0f * sqrtf(M_PI));
@@ -97,16 +96,7 @@ void Modeling::set_wavelet()
 
         float arg = M_PI*M_PI*M_PI*fc*fc*td*td;
 
-        signal_aux1[n] = 1e5f*(1.0f - 2.0f*arg)*expf(-arg);
-    }
-
-    for (int n = 0; n < nt; n++)
-    {
-        float summation = 0;
-        for (int i = 0; i < n; i++)
-            summation += signal_aux1[i];    
-        
-        signal_aux2[n] = summation;
+        signal_aux[n] = 1e5f*(1.0f - 2.0f*arg)*expf(-arg);
     }
 
     double * time_domain = (double *) fftw_malloc(nt*sizeof(double));
@@ -120,7 +110,7 @@ void Modeling::set_wavelet()
     
     std::complex<double> j(0.0, 1.0);  
 
-    for (int k = 0; k < nt; k++) time_domain[k] = (double) signal_aux2[k];
+    for (int k = 0; k < nt; k++) time_domain[k] = (double) signal_aux[k];
 
     fftw_execute(forward_plan);
 
@@ -139,14 +129,13 @@ void Modeling::set_wavelet()
 
     fftw_execute(inverse_plan);    
 
-    for (int k = 0; k < nt; k++) signal_aux1[k] = (float) time_domain[k] / nt;
+    for (int k = 0; k < nt; k++) signal_aux[k] = (float) time_domain[k] / nt;
 
     cudaMalloc((void**)&(wavelet), nt*sizeof(float));
 
-    cudaMemcpy(wavelet, signal_aux1, nt*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(wavelet, signal_aux, nt*sizeof(float), cudaMemcpyHostToDevice);
 
-    delete[] signal_aux1;
-    delete[] signal_aux2;
+    delete[] signal_aux;
 }
 
 void Modeling::set_properties()
@@ -207,7 +196,6 @@ void Modeling::reduce_boundary(float * input, float * output)
 
 void Modeling::set_conditions()
 {
-    modeling_type = "scalar_";
     modeling_name = "Scalar wave propagation";
 
     output_data = new float[nt*nTraces]();
@@ -217,6 +205,7 @@ void Modeling::set_conditions()
 
     float * aux = new float[matsize]();
 
+    # pragma omp parallel for
     for (int index = 0; index < matsize; index++)
         aux[index] = dt*dt*Vp[index]*Vp[index];
 
@@ -279,6 +268,21 @@ void Modeling::initialization()
     cudaMemcpy(rIdz, current_zrec, geometry->spread[srcId]*sizeof(int), cudaMemcpyHostToDevice);
 }
 
+void Modeling::set_seismogram()
+{
+    cudaMemcpy(synthetic_data, seismogram, nt*geometry->spread[srcId]*sizeof(float), cudaMemcpyDeviceToHost);
+
+    for (int timeId = 0; timeId < nt; timeId++)
+        for (int spreadId = 0; spreadId < geometry->spread[srcId]; spreadId++)
+            output_data[timeId + (srcId*geometry->spread[srcId] + spreadId)*nt] = synthetic_data[timeId + spreadId*nt];    
+}
+
+void Modeling::export_output_data()
+{
+    std::string data_file = data_folder + "seismogram_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nt) + "x" + std::to_string(nTraces) + "_" + std::to_string(int(1e3f*dt)) + "ms.bin";
+    export_binary_float(data_file, output_data, nt*nTraces);    
+}
+
 void Modeling::forward_solver()
 {
     for (int tId = 0; tId < tlag + nt; tId++)
@@ -286,18 +290,14 @@ void Modeling::forward_solver()
         compute_pressure<<<nBlocks, nThreads>>>(dtVp2, Pi, Pf, wavelet, d1D, d2D, sIdx, sIdz, tId, nt, nb, nxx, nzz, dx, dz);
         cudaDeviceSynchronize();
 
-        // compute_seismogram<<<sBlocks, nThreads>>>(Pf, rIdx, rIdz, seismogram, geometry->spread[srcId], tId, tlag, nt, nzz);     
-        // cudaDeviceSynchronize();
+        compute_seismogram<<<sBlocks, nThreads>>>(Pi, rIdx, rIdz, seismogram, geometry->spread[srcId], tId, tlag, nt, nzz);     
+        cudaDeviceSynchronize();
+
+        std::swap(Pf, Pi);
     }
 
-    // cudaMemcpy(synthetic_data, seismogram, nt*geometry->spread[srcId]*sizeof(float), cudaMemcpyDeviceToHost);
+    set_seismogram();
 }
-
-// void Modeling::export_synthetic_data()
-// {
-//     std::string data_file = data_folder + modeling_type + "nStations" + std::to_string(geometry->spread[srcId]) + "_nSamples" + std::to_string(nt) + "_shot_" + std::to_string(geometry->sInd[srcId]+1) + ".bin";
-//     export_binary_float(data_file, synthetic_data, nt*geometry->spread[srcId]);    
-// }
 
 __global__ void compute_pressure(float * dtvp2, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz)
 {

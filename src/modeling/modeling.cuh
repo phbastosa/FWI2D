@@ -57,7 +57,6 @@ public:
 
     std::string parameters;
     std::string data_folder;
-    std::string modeling_type;
     std::string modeling_name;
 
     void expand_boundary(float * input, float * output);
@@ -71,7 +70,7 @@ public:
 
     void show_information();    
 
-    void export_synthetic_data();
+    void export_output_data();
 };
 
 __global__ void compute_pressure(float * dtvp2, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz);

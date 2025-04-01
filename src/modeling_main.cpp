@@ -18,11 +18,11 @@ int main(int argc, char **argv)
 
         modeling->initialization();
         modeling->forward_solver();
-
-    //     modeling->export_synthetic_data();
     }
 
     auto tf = std::chrono::system_clock::now();
+
+    modeling->export_output_data();
 
     std::chrono::duration<double> elapsed_seconds = tf - ti;
     std::cout << "\nRun time: " << elapsed_seconds.count() << " s." << std::endl;
