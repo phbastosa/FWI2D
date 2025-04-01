@@ -1,8 +1,19 @@
 #!/bin/bash
 
-modeling="../src/modeling.py"
-inversion="../src/inversion.py"
-migration="../src/migration.py"
+admin="../src/admin/admin.cpp"
+
+geometry="../src/geometry/geometry.cpp"
+
+modeling="../src/modeling/modeling.cu"
+modeling_main="../src/modeling/modeling_main.cpp"
+
+inversion="../src/inversion/inversion.cu"
+inversion_main="../src/inversion/inversion_main.cpp"
+
+migration="../src/migration/migration.py"
+migration_main="../src/migration/migration_main.cpp"
+
+flags="-Xcompiler -fopenmp --std=c++11 -lm -lfftw3 -O3"
 
 # Main dialogue ---------------------------------------------------------------------------------------
 
@@ -37,33 +48,49 @@ case "$1" in
 	exit 0
 ;;
 
+-compile) 
+
+    echo -e "Compiling stand-alone executables!\n"
+
+    echo -e "../bin/\033[31mmodeling.exe\033[m" 
+    nvcc $admin $geometry $modeling $modeling_main $flags -o ../bin/modeling.exe
+
+    echo -e "../bin/\033[31minversion.exe\033[m" 
+    nvcc $admin $geometry $modeling $inversion $inversion_main $flags -o ../bin/inversion.exe
+
+    echo -e "../bin/\033[31mmigration.exe\033[m"
+    nvcc $admin $geometry $modeling $migration $migration_main $flags -o ../bin/migration.exe
+
+    exit 0
+;;
+
 -modeling) 
 
-    python3 -B $modeling parameters.txt
+    ./../bin/modeling.exe parameters.txt
 	
     exit 0
 ;;
 
 -inversion) 
     
-    python3 -B $inversion parameters.txt
+    ./../bin/inversion.exe parameters.txt
 	
     exit 0
 ;;
 
 -migration) 
     
-    python3 -B $migration parameters.txt
+    ./../bin/migrtion.exe parameters.txt
 	
     exit 0
 ;;
 
 -test_modeling)
 
-    python3 -B ../tests/modeling/generate_models.py
-    python3 -B ../tests/modeling/generate_geometry.py
+    # python3 -B ../tests/modeling/generate_models.py
+    # python3 -B ../tests/modeling/generate_geometry.py
 
-    python3 -B $modeling ../tests/modeling/parameters.txt
+    # python3 -B $modeling ../tests/modeling/parameters.txt
 
     # python3 -B ../tests/modeling/generate_figures.py
 
@@ -72,26 +99,26 @@ case "$1" in
 
 -test_inversion) 
 
-    python3 -B ../tests/inversion/generate_models.py
-    python3 -B ../tests/inversion/generate_geometry.py
+    # python3 -B ../tests/inversion/generate_models.py
+    # python3 -B ../tests/inversion/generate_geometry.py
 
-    python3 -B $modeling ../tests/inversion/parameters.txt
-    python3 -B $inversion ../tests/inversion/parameters.txt
+    # python3 -B $modeling ../tests/inversion/parameters.txt
+    # python3 -B $inversion ../tests/inversion/parameters.txt
 
-    python3 -B ../tests/inversion/generate_figures.py
+    # python3 -B ../tests/inversion/generate_figures.py
 
     exit 0
 ;;
 
 -test_migration)
 
-    python3 -B ../tests/migration/generate_models.py
-    python3 -B ../tests/migration/generate_geometry.py
+    # python3 -B ../tests/migration/generate_models.py
+    # python3 -B ../tests/migration/generate_geometry.py
 
-    python3 -B $modeling ../tests/migration/parameters.txt
-    python3 -B $migration ../tests/migration/parameters.txt
+    # python3 -B $modeling ../tests/migration/parameters.txt
+    # python3 -B $migration ../tests/migration/parameters.txt
 
-    python3 -B ../tests/migration/generate_figures.py
+    # python3 -B ../tests/migration/generate_figures.py
 
 	exit 0
 ;;
