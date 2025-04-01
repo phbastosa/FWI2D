@@ -288,10 +288,8 @@ void Modeling::forward_solver()
     for (int tId = 0; tId < tlag + nt; tId++)
     {
         compute_pressure<<<nBlocks, nThreads>>>(dtVp2, Pi, Pf, wavelet, d1D, d2D, sIdx, sIdz, tId, nt, nb, nxx, nzz, dx, dz);
-        cudaDeviceSynchronize();
-
+        
         compute_seismogram<<<sBlocks, nThreads>>>(Pi, rIdx, rIdz, seismogram, geometry->spread[srcId], tId, tlag, nt, nzz);     
-        cudaDeviceSynchronize();
 
         std::swap(Pf, Pi);
     }

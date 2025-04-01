@@ -92,7 +92,7 @@ case "$1" in
 
     ./../bin/modeling.exe ../tests/modeling/parameters.txt
 
-    # python3 -B ../tests/modeling/generate_figures.py
+    python3 -B ../tests/modeling/generate_figures.py ../tests/modeling/parameters.txt
 
 	exit 0
 ;;
