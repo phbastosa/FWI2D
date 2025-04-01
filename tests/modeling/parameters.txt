@@ -30,7 +30,7 @@ max_frequency = 30.0
 boundary_samples = 100
 boundary_damping = 0.0015 
 
-seismic_folder = ../outputs/seismic/
+modeling_output_folder = ../outputs/data/
 
 #------------------------------------------------------------
 # Inversion parameters --------------------------------------

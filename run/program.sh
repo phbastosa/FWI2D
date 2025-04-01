@@ -5,13 +5,13 @@ admin="../src/admin/admin.cpp"
 geometry="../src/geometry/geometry.cpp"
 
 modeling="../src/modeling/modeling.cu"
-modeling_main="../src/modeling/modeling_main.cpp"
+modeling_main="../src/modeling_main.cpp"
 
 inversion="../src/inversion/inversion.cu"
-inversion_main="../src/inversion/inversion_main.cpp"
+inversion_main="../src/inversion_main.cpp"
 
 migration="../src/migration/migration.py"
-migration_main="../src/migration/migration_main.cpp"
+migration_main="../src/migration_main.cpp"
 
 flags="-Xcompiler -fopenmp --std=c++11 -lm -lfftw3 -O3"
 
@@ -55,11 +55,11 @@ case "$1" in
     echo -e "../bin/\033[31mmodeling.exe\033[m" 
     nvcc $admin $geometry $modeling $modeling_main $flags -o ../bin/modeling.exe
 
-    echo -e "../bin/\033[31minversion.exe\033[m" 
-    nvcc $admin $geometry $modeling $inversion $inversion_main $flags -o ../bin/inversion.exe
+    # echo -e "../bin/\033[31minversion.exe\033[m" 
+    # nvcc $admin $geometry $modeling $inversion $inversion_main $flags -o ../bin/inversion.exe
 
-    echo -e "../bin/\033[31mmigration.exe\033[m"
-    nvcc $admin $geometry $modeling $migration $migration_main $flags -o ../bin/migration.exe
+    # echo -e "../bin/\033[31mmigration.exe\033[m"
+    # nvcc $admin $geometry $modeling $migration $migration_main $flags -o ../bin/migration.exe
 
     exit 0
 ;;
@@ -87,10 +87,10 @@ case "$1" in
 
 -test_modeling)
 
-    # python3 -B ../tests/modeling/generate_models.py
-    # python3 -B ../tests/modeling/generate_geometry.py
+    python3 -B ../tests/modeling/generate_models.py
+    python3 -B ../tests/modeling/generate_geometry.py
 
-    # python3 -B $modeling ../tests/modeling/parameters.txt
+    ./../bin/modeling.exe ../tests/modeling/parameters.txt
 
     # python3 -B ../tests/modeling/generate_figures.py
 

@@ -17,7 +17,7 @@ private:
     void set_wavelet();
     void set_boundaries();
     void set_properties();
-    void set_conditions();
+    void set_seismogram();
     void set_specifications();
 
 protected:
@@ -37,8 +37,8 @@ protected:
     int * current_zrec = nullptr;
 
     float * wavelet = nullptr;
-
     float * seismogram = nullptr;
+    float * synthetic_data = nullptr;
 
 public:
 
@@ -51,9 +51,9 @@ public:
 
     Geometry * geometry;
 
-    int max_spread, nTraces;
+    int nTraces;
 
-    float * synthetic_data = nullptr;
+    float * output_data = nullptr;
 
     std::string parameters;
     std::string data_folder;
@@ -64,6 +64,7 @@ public:
     void reduce_boundary(float * input, float * output);
 
     void set_parameters();
+    void set_conditions();
 
     void initialization();
     void forward_solver();
@@ -73,7 +74,7 @@ public:
     void export_synthetic_data();
 };
 
-__global__ void compute_pressure(float * Pi, float * Pf, float * wavelet, int sIdx, int sIdz, int tId, float * d1D, float * d2D, int nb, int nt, int nxx, int nzz, float dx, float dz);
+__global__ void compute_pressure(float * dtvp2, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz);
 
 __global__ void compute_seismogram(float * P, int * rIdx, int * rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz);
 
