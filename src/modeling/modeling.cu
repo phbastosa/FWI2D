@@ -200,20 +200,12 @@ void Modeling::set_conditions()
 
     output_data = new float[nt*nTraces]();
     
-    cudaMalloc((void**)&(Pi), matsize*sizeof(float));
-    cudaMalloc((void**)&(Pf), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pi), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pf), matsize*sizeof(float));
 
-    float * aux = new float[matsize]();
+    cudaMalloc((void**)&(d_Vp), matsize*sizeof(float));
 
-    # pragma omp parallel for
-    for (int index = 0; index < matsize; index++)
-        aux[index] = dt*dt*Vp[index]*Vp[index];
-
-    cudaMalloc((void**)&(dtVp2), matsize*sizeof(float));
-
-    cudaMemcpy(dtVp2, aux, matsize*sizeof(float), cudaMemcpyHostToDevice);
-    
-    delete[] aux;
+    cudaMemcpy(d_Vp, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
 }
 
 void Modeling::show_information()
@@ -236,8 +228,8 @@ void Modeling::show_information()
 
 void Modeling::initialization()
 {
-    cudaMemset(Pi, 0.0f, matsize*sizeof(float));
-    cudaMemset(Pf, 0.0f, matsize*sizeof(float));
+    cudaMemset(d_Pi, 0.0f, matsize*sizeof(float));
+    cudaMemset(d_Pf, 0.0f, matsize*sizeof(float));
 
     sIdx = (int)(geometry->xsrc[geometry->sInd[srcId]] / dx) + nb;
     sIdz = (int)(geometry->zsrc[geometry->sInd[srcId]] / dz) + nb;
@@ -287,17 +279,17 @@ void Modeling::forward_solver()
 {
     for (int tId = 0; tId < tlag + nt; tId++)
     {
-        compute_pressure<<<nBlocks, nThreads>>>(dtVp2, Pi, Pf, wavelet, d1D, d2D, sIdx, sIdz, tId, nt, nb, nxx, nzz, dx, dz);
+        compute_pressure<<<nBlocks, nThreads>>>(d_Vp, d_Pi, d_Pf, wavelet, d1D, d2D, sIdx, sIdz, tId, nt, nb, nxx, nzz, dx, dz, dt);
         
-        compute_seismogram<<<sBlocks, nThreads>>>(Pi, rIdx, rIdz, seismogram, geometry->spread[srcId], tId, tlag, nt, nzz);     
+        compute_seismogram<<<sBlocks, nThreads>>>(d_Pi, rIdx, rIdz, seismogram, geometry->spread[srcId], tId, tlag, nt, nzz);     
 
-        std::swap(Pf, Pi);
+        std::swap(d_Pf, d_Pi);
     }
 
     set_seismogram();
 }
 
-__global__ void compute_pressure(float * dtvp2, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz)
+__global__ void compute_pressure(float * Vp, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -321,7 +313,7 @@ __global__ void compute_pressure(float * dtvp2, float * Pi, float * Pf, float * 
                      +  8064.0f*(Pi[(i-1) + j*nzz] + Pi[(i+1) + j*nzz])
                      - 14350.0f*(Pi[i + j*nzz]))/(5040.0f*dz*dz);
 
-        Pf[index] = dtvp2[index] * (d2P_dx2 + d2P_dz2) + 2.0f*Pi[index] - Pf[index];
+        Pf[index] = dt*dt*Vp[index]*Vp[index]*(d2P_dx2 + d2P_dz2) + 2.0f*Pi[index] - Pf[index];
     
         float damper = get_boundary_damper(d1D, d2D, i, j, nxx, nzz, nb);
 

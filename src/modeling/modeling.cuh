@@ -9,11 +9,6 @@ class Modeling
 {
 private:
 
-    float * Pi = nullptr;
-    float * Pf = nullptr;
-
-    float * dtVp2 = nullptr;
-
     void set_wavelet();
     void set_boundaries();
     void set_properties();
@@ -49,6 +44,10 @@ public:
 
     float * Vp = nullptr;
 
+    float * d_Pi = nullptr;
+    float * d_Pf = nullptr;
+    float * d_Vp = nullptr;
+
     Geometry * geometry;
 
     int nTraces;
@@ -73,7 +72,7 @@ public:
     void export_output_data();
 };
 
-__global__ void compute_pressure(float * dtvp2, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz);
+__global__ void compute_pressure(float * Vp, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt);
 
 __global__ void compute_seismogram(float * P, int * rIdx, int * rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz);
 
