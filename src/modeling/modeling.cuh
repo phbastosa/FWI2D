@@ -9,35 +9,27 @@ class Modeling
 {
 private:
 
+    float * d_b1d = nullptr;
+    float * d_b2d = nullptr;
+
+    float * d_wavelet = nullptr;
+    float * d_seismogram = nullptr;
+
     void set_wavelet();
     void set_boundaries();
     void set_properties();
     void set_seismogram();
     void set_specifications();
 
-protected:
+public:
 
     float fmax, bd;
+    float dx, dz, dt;
 
+    int nTraces;
     int tlag, nThreads;
     int sBlocks, nBlocks;
 
-    float * d1D = nullptr;
-    float * d2D = nullptr;
-
-    int * rIdx = nullptr;
-    int * rIdz = nullptr;
-
-    int * current_xrec = nullptr;
-    int * current_zrec = nullptr;
-
-    float * wavelet = nullptr;
-    float * seismogram = nullptr;
-    float * synthetic_data = nullptr;
-
-public:
-
-    float dx, dz, dt;
     int nxx, nzz, matsize;
     int nt, nx, nz, nb, nPoints;
     int srcId, recId, sIdx, sIdz;
@@ -48,11 +40,16 @@ public:
     float * d_Pf = nullptr;
     float * d_Vp = nullptr;
 
-    Geometry * geometry;
+    int * d_rIdx = nullptr;
+    int * d_rIdz = nullptr;
 
-    int nTraces;
+    int * current_xrec = nullptr;
+    int * current_zrec = nullptr;
 
+    float * seismogram = nullptr;
     float * output_data = nullptr;
+
+    Geometry * geometry;
 
     std::string parameters;
     std::string data_folder;
