@@ -113,13 +113,19 @@ void Migration::backward_propagation()
     cudaMemset(d_Pr, 0.0f, matsize*sizeof(float));
     cudaMemset(d_Prold, 0.0f, matsize*sizeof(float));
 
-    for (int tId = nt-1; tId >= 0; tId--)
+    for (int tId = 0; tId < nt; tId++)
     {
         RTM<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_image, d_sumPs, d_sumPr, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dx, dz, dt);
     
         std::swap(d_P, d_Pold);
         std::swap(d_Pr, d_Prold);
     }    
+
+    cudaMemcpy(partial, d_P, matsize*sizeof(float), cudaMemcpyDeviceToHost);
+    export_binary_float("Ps.bin", partial, matsize);
+
+    cudaMemcpy(partial, d_Pr, matsize*sizeof(float), cudaMemcpyDeviceToHost);
+    export_binary_float("Pr.bin", partial, matsize);
 }
 
 void Migration::set_seismic_source()
@@ -144,7 +150,7 @@ void Migration::image_enhancing()
 
     # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
-        image[index] = image[index] / (sumPs[index] + sumPr[index]);
+        image[index] = image[index] / sumPs[index];
 
     # pragma omp parallel for    
     for (int index = 0; index < nPoints; index++)
@@ -154,10 +160,9 @@ void Migration::image_enhancing()
 
         if((i > 3) && (i < nz-4) && (j > 3) && (j < nx-4)) 
         {
-            float d2I_dx2 = (image[i + (j-1)*nz] - 2.0f*image[i + j*nz] + image[i + (j+1)*nz]) / (dx * dx);    
             float d2I_dz2 = (image[(i-1) + j*nz] - 2.0f*image[i + j*nz] + image[(i+1) + j*nz]) / (dz * dz);
 
-            image[index] = d2I_dx2 + d2I_dz2;
+            image[index] = d2I_dz2;
         }    
     }
 }
@@ -179,8 +184,8 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
     {
         for (int rId = 0; rId < spread; rId++)
         {
-            Pr[(rIdz[rId] + 1) + rIdz[rId]*nzz] += 0.5f*seismogram[tId + rId*nt] / (dx*dz); 
-            Pr[(rIdz[rId] - 1) + rIdz[rId]*nzz] += 0.5f*seismogram[tId + rId*nt] / (dx*dz); 
+            Pr[(rIdz[rId] + 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dx*dz); 
+            Pr[(rIdz[rId] - 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dx*dz); 
         }
     }    
 
@@ -214,9 +219,10 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
         
         Prold[index] = dt*dt*Vp[index]*Vp[index]*(d2Pr_dx2 + d2Pr_dz2) + 2.0f*Pr[index] - Prold[index];
     
-        image[index] = Ps[index]*Pr[index];
-        sumPs[index] +=Ps[index]*Ps[index]; 
-        sumPr[index] +=Pr[index]*Pr[index]; 
+        sumPs[index] += Ps[index]; 
+        sumPr[index] += Pr[index]; 
+
+        image[index] = Ps[index]*Prold[index];
     }
 }
 
