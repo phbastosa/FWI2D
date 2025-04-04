@@ -2,6 +2,17 @@
 
 void Modeling::set_parameters()
 {
+    set_main_parameters();
+    
+    set_wavelet();
+    set_geometry();
+    set_properties();
+
+    set_cerjan_dampers();
+}
+
+void Modeling::set_main_parameters()
+{
     nx = std::stoi(catch_parameter("x_samples", parameters));        
     nz = std::stoi(catch_parameter("z_samples", parameters));        
 
@@ -11,70 +22,20 @@ void Modeling::set_parameters()
     nt = std::stoi(catch_parameter("time_samples", parameters));
     dt = std::stof(catch_parameter("time_spacing", parameters));
 
+    nb = std::stoi(catch_parameter("boundary_samples", parameters));
+    bd = std::stof(catch_parameter("boundary_damping", parameters));
+
+    fmax = std::stof(catch_parameter("max_frequency", parameters));
+
     data_folder = catch_parameter("modeling_output_folder", parameters);
 
+    ABC = true;
+
     nPoints = nx*nz;
-
-    geometry = new Geometry();
-    geometry->parameters = parameters;
-    geometry->set_parameters();
-
-    nTraces = 0;
-    for (int index = 0; index < geometry->nrel; index++)
-        nTraces += geometry->spread[index];
-
-    set_boundaries();
-
     nxx = nx + 2*nb;
     nzz = nz + 2*nb;
 
     matsize = nxx*nzz;
-
-    set_specifications();
-}
-
-void Modeling::set_boundaries()
-{
-    nb = std::stoi(catch_parameter("boundary_samples", parameters));
-    bd = std::stof(catch_parameter("boundary_damping", parameters));
-
-    float * damp1D = new float[nb]();
-    float * damp2D = new float[nb*nb]();
-
-    for (int i = 0; i < nb; i++) 
-    {
-        damp1D[i] = expf(-powf(bd * (nb - i), 2.0f));
-    }
-
-    for(int i = 0; i < nb; i++) 
-    {
-        for (int j = 0; j < nb; j++)
-        {   
-            damp2D[j + i*nb] += damp1D[i];
-            damp2D[i + j*nb] += damp1D[i];
-        }
-    }
-
-    for (int index = 0; index < nb*nb; index++)
-        damp2D[index] -= 1.0f;
-
-    cudaMalloc((void**)&(d_b1d), nb*sizeof(float));
-    cudaMalloc((void**)&(d_b2d), nb*nb*sizeof(float));
-
-    cudaMemcpy(d_b1d, damp1D, nb*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_b2d, damp2D, nb*nb*sizeof(float), cudaMemcpyHostToDevice);
-
-    delete[] damp1D;
-    delete[] damp2D;
-}
-
-void Modeling::set_specifications()
-{
-    fmax = std::stof(catch_parameter("max_frequency", parameters));
-
-    set_wavelet();
-    set_properties();    
-    set_conditions();    
 
     nThreads = 256;
     nBlocks = (int)((matsize + nThreads - 1) / nThreads);
@@ -137,17 +98,75 @@ void Modeling::set_wavelet()
     delete[] signal_aux;
 }
 
+void Modeling::set_geometry()
+{
+    geometry = new Geometry();
+    geometry->parameters = parameters;
+    geometry->set_parameters();
+
+    sBlocks = (int)((geometry->spread + nThreads - 1) / nThreads); 
+    
+    rIdx = new int[geometry->spread]();
+    rIdz = new int[geometry->spread]();
+
+    seismogram = new float[nt*geometry->spread]();
+    seismic_data = new float[nt*geometry->nTraces]();
+
+    cudaMalloc((void**)&(d_rIdx), geometry->spread*sizeof(int));
+    cudaMalloc((void**)&(d_rIdz), geometry->spread*sizeof(int));
+
+    cudaMalloc((void**)&(d_seismogram), nt*geometry->spread*sizeof(float));
+}
+
+void Modeling::set_cerjan_dampers()
+{
+    float * damp1D = new float[nb]();
+    float * damp2D = new float[nb*nb]();
+
+    for (int i = 0; i < nb; i++) 
+    {
+        damp1D[i] = expf(-powf(bd * (nb - i), 2.0f));
+    }
+
+    for(int i = 0; i < nb; i++) 
+    {
+        for (int j = 0; j < nb; j++)
+        {   
+            damp2D[j + i*nb] += damp1D[i];
+            damp2D[i + j*nb] += damp1D[i];
+        }
+    }
+
+    for (int index = 0; index < nb*nb; index++)
+        damp2D[index] -= 1.0f;
+
+    cudaMalloc((void**)&(d_b1d), nb*sizeof(float));
+    cudaMalloc((void**)&(d_b2d), nb*nb*sizeof(float));
+
+    cudaMemcpy(d_b1d, damp1D, nb*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_b2d, damp2D, nb*nb*sizeof(float), cudaMemcpyHostToDevice);
+
+    delete[] damp1D;
+    delete[] damp2D;
+}
+
 void Modeling::set_properties()
 {
     std::string vp_file = catch_parameter("model_file", parameters);
 
+    Vp = new float[matsize]();
+
     float * vp = new float[nPoints]();
 
-    Vp = new float[matsize]();
+    cudaMalloc((void**)&(d_P), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Vp), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pold), matsize*sizeof(float));
 
     import_binary_float(vp_file, vp, nPoints);
 
     expand_boundary(vp, Vp);
+    
+    cudaMemcpy(d_Vp, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
 
     delete[] vp;
 }
@@ -193,102 +212,74 @@ void Modeling::reduce_boundary(float * input, float * output)
     }
 }
 
-void Modeling::set_conditions()
-{
-    modeling_name = "Scalar wave propagation";
-
-    output_data = new float[nt*nTraces]();
-    
-    cudaMalloc((void**)&(d_Pi), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_Pf), matsize*sizeof(float));
-
-    cudaMalloc((void**)&(d_Vp), matsize*sizeof(float));
-
-    cudaMemcpy(d_Vp, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
-}
-
 void Modeling::show_information()
 {
     auto clear = system("clear");
     
     std::cout << "-------------------------------------------------------------------------------\n";
-    std::cout << "                                 \033[34mSeisFAT2D\033[0;0m\n";
+    std::cout << "                               \033[34mSeismic Modeling\033[0;0m\n";
     std::cout << "-------------------------------------------------------------------------------\n\n";
 
-    std::cout << "Model dimensions: (z = " << (nz - 1)*dz << ", x = " << (nx - 1) * dx <<") m\n\n";
+    std::cout << "Model dimensions: (z = " << (nz - 1)*dz << ", x = " << (nx - 1)*dx <<") m\n\n";
 
     std::cout << "Running shot " << srcId + 1 << " of " << geometry->nrel << " in total\n\n";
 
     std::cout << "Current shot position: (z = " << geometry->zsrc[geometry->sInd[srcId]] << 
-                                       ", x = " << geometry->xsrc[geometry->sInd[srcId]] << ") m\n\n";
-
-    std::cout << "Modeling type: " << modeling_name << "\n";
+                                       ", x = " << geometry->xsrc[geometry->sInd[srcId]] << ") m\n";
 }
 
 void Modeling::initialization()
 {
-    cudaMemset(d_Pi, 0.0f, matsize*sizeof(float));
-    cudaMemset(d_Pf, 0.0f, matsize*sizeof(float));
-
     sIdx = (int)(geometry->xsrc[geometry->sInd[srcId]] / dx) + nb;
     sIdz = (int)(geometry->zsrc[geometry->sInd[srcId]] / dz) + nb;
 
-    current_xrec = new int[geometry->spread[srcId]]();
-    current_zrec = new int[geometry->spread[srcId]]();
-
-    seismogram = new float[nt*geometry->spread[srcId]]();
-
     int spreadId = 0;
 
-    for (recId = geometry->iRec[srcId]; recId < geometry->fRec[srcId]; recId++)
+    for (int recId = geometry->iRec[srcId]; recId < geometry->fRec[srcId]; recId++)
     {
-        current_xrec[spreadId] = (int)(geometry->xrec[recId] / dx) + nb;
-        current_zrec[spreadId] = (int)(geometry->zrec[recId] / dz) + nb;
+        rIdx[spreadId] = (int)(geometry->xrec[recId] / dx) + nb;
+        rIdz[spreadId] = (int)(geometry->zrec[recId] / dz) + nb;
 
         ++spreadId;
     }
 
-    sBlocks = (int)((geometry->spread[srcId] + nThreads - 1) / nThreads); 
-
-    cudaMalloc((void**)&(d_rIdx), geometry->spread[srcId]*sizeof(int));
-    cudaMalloc((void**)&(d_rIdz), geometry->spread[srcId]*sizeof(int));
-
-    cudaMalloc((void**)&(d_seismogram), nt*geometry->spread[srcId]*sizeof(float));
-
-    cudaMemcpy(d_rIdx, current_xrec, geometry->spread[srcId]*sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_rIdz, current_zrec, geometry->spread[srcId]*sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_rIdx, rIdx, geometry->spread*sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_rIdz, rIdz, geometry->spread*sizeof(int), cudaMemcpyHostToDevice);
 }
 
 void Modeling::set_seismogram()
 {
-    cudaMemcpy(seismogram, d_seismogram, nt*geometry->spread[srcId]*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(seismogram, d_seismogram, nt*geometry->spread*sizeof(float), cudaMemcpyDeviceToHost);
 
     for (int timeId = 0; timeId < nt; timeId++)
-        for (int spreadId = 0; spreadId < geometry->spread[srcId]; spreadId++)
-            output_data[timeId + (srcId*geometry->spread[srcId] + spreadId)*nt] = seismogram[timeId + spreadId*nt];    
+        for (int spreadId = 0; spreadId < geometry->spread; spreadId++)
+            seismic_data[timeId + spreadId*nt + srcId*geometry->spread*nt] = seismogram[timeId + spreadId*nt];    
 }
 
 void Modeling::export_output_data()
 {
-    std::string data_file = data_folder + "seismogram_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nt) + "x" + std::to_string(nTraces) + "_" + std::to_string(int(1e3f*dt)) + "ms.bin";
-    export_binary_float(data_file, output_data, nt*nTraces);    
+    std::string data_file = data_folder + "seismogram_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nt) + "x" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(1e3f*dt)) + "ms.bin";
+    export_binary_float(data_file, seismic_data, nt*geometry->nTraces);    
 }
 
 void Modeling::forward_solver()
 {
+    cudaMemset(d_P, 0.0f, matsize*sizeof(float));
+    cudaMemset(d_Pold, 0.0f, matsize*sizeof(float));
+
     for (int tId = 0; tId < tlag + nt; tId++)
     {
-        compute_pressure<<<nBlocks, nThreads>>>(d_Vp, d_Pi, d_Pf, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, dx, dz, dt);
+        compute_pressure<<<nBlocks, nThreads>>>(d_Vp, d_P, d_Pold, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, dx, dz, dt, ABC);
         
-        compute_seismogram<<<sBlocks, nThreads>>>(d_Pi, d_rIdx, d_rIdz, d_seismogram, geometry->spread[srcId], tId, tlag, nt, nzz);     
+        compute_seismogram<<<sBlocks, nThreads>>>(d_P, d_rIdx, d_rIdz, d_seismogram, geometry->spread, tId, tlag, nt, nzz);     
 
-        std::swap(d_Pf, d_Pi);
+        std::swap(d_P, d_Pold);
     }
 
     set_seismogram();
 }
 
-__global__ void compute_pressure(float * Vp, float * Pi, float * Pf, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt)
+__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt, bool ABC)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -296,28 +287,31 @@ __global__ void compute_pressure(float * Vp, float * Pi, float * Pf, float * d_w
     int j = (int)(index / nzz);
 
     if ((index == 0) && (tId < nt))
-        Pi[sIdz + sIdx*nzz] += d_wavelet[tId] / (dx*dz); 
+        P[sIdz + sIdx*nzz] += d_wavelet[tId] / (dx*dz); 
 
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
-        float d2P_dx2 = (- 9.0f*(Pi[i + (j-4)*nzz] + Pi[i + (j+4)*nzz])
-                     +   128.0f*(Pi[i + (j-3)*nzz] + Pi[i + (j+3)*nzz])
-                     -  1008.0f*(Pi[i + (j-2)*nzz] + Pi[i + (j+2)*nzz])
-                     +  8064.0f*(Pi[i + (j+1)*nzz] + Pi[i + (j-1)*nzz])
-                     - 14350.0f*(Pi[i + j*nzz]))/(5040.0f*dx*dx);
+        float d2P_dx2 = (- 9.0f*(P[i + (j-4)*nzz] + P[i + (j+4)*nzz])
+                     +   128.0f*(P[i + (j-3)*nzz] + P[i + (j+3)*nzz])
+                     -  1008.0f*(P[i + (j-2)*nzz] + P[i + (j+2)*nzz])
+                     +  8064.0f*(P[i + (j+1)*nzz] + P[i + (j-1)*nzz])
+                     - 14350.0f*(P[i + j*nzz]))/(5040.0f*dx*dx);
 
-        float d2P_dz2 = (- 9.0f*(Pi[(i-4) + j*nzz] + Pi[(i+4) + j*nzz])
-                     +   128.0f*(Pi[(i-3) + j*nzz] + Pi[(i+3) + j*nzz])
-                     -  1008.0f*(Pi[(i-2) + j*nzz] + Pi[(i+2) + j*nzz])
-                     +  8064.0f*(Pi[(i-1) + j*nzz] + Pi[(i+1) + j*nzz])
-                     - 14350.0f*(Pi[i + j*nzz]))/(5040.0f*dz*dz);
+        float d2P_dz2 = (- 9.0f*(P[(i-4) + j*nzz] + P[(i+4) + j*nzz])
+                     +   128.0f*(P[(i-3) + j*nzz] + P[(i+3) + j*nzz])
+                     -  1008.0f*(P[(i-2) + j*nzz] + P[(i+2) + j*nzz])
+                     +  8064.0f*(P[(i-1) + j*nzz] + P[(i+1) + j*nzz])
+                     - 14350.0f*(P[i + j*nzz]))/(5040.0f*dz*dz);
 
-        Pf[index] = dt*dt*Vp[index]*Vp[index]*(d2P_dx2 + d2P_dz2) + 2.0f*Pi[index] - Pf[index];
-    
-        float damper = get_boundary_damper(d_b1d, d_b2d, i, j, nxx, nzz, nb);
+        Pold[index] = dt*dt*Vp[index]*Vp[index]*(d2P_dx2 + d2P_dz2) + 2.0f*P[index] - Pold[index];
+        
+        if (ABC)
+        {
+            float damper = get_boundary_damper(d_b1d, d_b2d, i, j, nxx, nzz, nb);
 
-        Pi[index] *= damper;
-        Pf[index] *= damper;
+            P[index] *= damper;
+            Pold[index] *= damper;
+        }
     }
 }
 

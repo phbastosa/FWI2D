@@ -11,11 +11,11 @@ public:
     int nrec;
     int nrel;
 
+    int spread, nTraces;
+
     int * sInd = nullptr;
     int * iRec = nullptr;
     int * fRec = nullptr;
-
-    int * spread = nullptr;
 
     float * xsrc = nullptr;
     float * zsrc = nullptr;

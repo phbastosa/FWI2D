@@ -23,8 +23,6 @@ void Geometry::set_parameters()
     iRec = new int[nrel]();
     fRec = new int[nrel]();
 
-    spread = new int[nrel]();
-
     xsrc = new float[nsrc]();
     zsrc = new float[nsrc]();
 
@@ -39,8 +37,10 @@ void Geometry::set_parameters()
         iRec[i] = std::stoi(AUX[1]);
         fRec[i] = std::stoi(AUX[2]);
 
-        spread[i] = fRec[i] - iRec[i];
+        spread = fRec[i] - iRec[i];
     }    
+
+    nTraces = nrel*spread;
 
     std::vector<std::string>().swap(AUX);
 

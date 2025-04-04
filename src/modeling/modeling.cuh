@@ -1,5 +1,5 @@
-# ifndef MODELING_HPP
-# define MODELING_HPP
+# ifndef MODELING_CUH
+# define MODELING_CUH
 
 # include <cuda_runtime.h>
 
@@ -7,61 +7,65 @@
 
 class Modeling
 {
-private:
+protected:
 
-    float * d_b1d = nullptr;
-    float * d_b2d = nullptr;
-
-    float * d_wavelet = nullptr;
-    float * d_seismogram = nullptr;
-
-    void set_wavelet();
-    void set_boundaries();
-    void set_properties();
-    void set_seismogram();
-    void set_specifications();
-
-public:
+    bool ABC;
 
     float fmax, bd;
     float dx, dz, dt;
 
-    int nTraces;
     int tlag, nThreads;
     int sBlocks, nBlocks;
 
     int nxx, nzz, matsize;
     int nt, nx, nz, nb, nPoints;
-    int srcId, recId, sIdx, sIdz;
+    int sIdx, sIdz;
+
+    int * rIdx = nullptr;
+    int * rIdz = nullptr;
 
     float * Vp = nullptr;
 
-    float * d_Pi = nullptr;
-    float * d_Pf = nullptr;
-    float * d_Vp = nullptr;
+    float * seismogram = nullptr;
+    float * seismic_data = nullptr;
 
     int * d_rIdx = nullptr;
     int * d_rIdz = nullptr;
 
-    int * current_xrec = nullptr;
-    int * current_zrec = nullptr;
+    float * d_P = nullptr;
+    float * d_Vp = nullptr;
+    float * d_Pold = nullptr;
 
-    float * seismogram = nullptr;
-    float * output_data = nullptr;
+    float * d_b1d = nullptr;
+    float * d_b2d = nullptr;
+    
+    float * d_wavelet = nullptr;
+    float * d_seismogram = nullptr;
 
-    Geometry * geometry;
-
-    std::string parameters;
     std::string data_folder;
-    std::string modeling_name;
+
+    void set_wavelet();
+    void set_geometry();
+    void set_properties();
+    void set_seismogram();
+    void set_cerjan_dampers();
+    void set_main_parameters();
 
     void expand_boundary(float * input, float * output);
     void reduce_boundary(float * input, float * output);
 
+public:
+
+    int srcId;
+
+    Geometry * geometry;
+
+    std::string parameters;
+
     void set_parameters();
-    void set_conditions();
 
     void initialization();
+
     void forward_solver();
 
     void show_information();    
@@ -69,7 +73,7 @@ public:
     void export_output_data();
 };
 
-__global__ void compute_pressure(float * Vp, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt);
+__global__ void compute_pressure(float * Vp, float * Pi, float * Pf, float * wavelet, float * d1D, float * d2D, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt, bool ABC);
 
 __global__ void compute_seismogram(float * P, int * rIdx, int * rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz);
 
