@@ -91,6 +91,10 @@ image = pyf.read_binary_matrix(nz, nx, image_folder + f"RTM_section_{nz}x{nx}_{i
 
 scale = 50*np.std(image)
 
+xloc = np.linspace(0, nx-1, 5)
+
+xlab = np.linspace(0, (nx-1)*dx, 5, dtype = int)
+
 fig, ax = plt.subplots(figsize = (10, 6))
 
 im = ax.imshow(image, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
