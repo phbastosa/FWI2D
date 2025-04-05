@@ -27,15 +27,15 @@ xlab = np.array(xloc*dx, dtype = int)
 zloc = np.linspace(0, nz-1, 6)
 zlab = np.array(zloc*dz, dtype = int)
 
-fig, ax = plt.subplots(figsize = (15, 3))
+fig, ax = plt.subplots(figsize = (10, 6))
 
 im = ax.imshow(model, aspect = "auto", cmap = "Greys")
 
 cbar = plt.colorbar(im)
 cbar.set_label("Velocity P [m/s]")
 
-ax.plot(RPS[:, 0]/dx, RPS[:, 1]/dz, "ob")
-ax.plot(SPS[:, 0]/dx, SPS[:, 1]/dz, "or")
+ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "ob", label = "receivers")
+ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "or", label = "sources")
 
 ax.set_xticks(xloc)
 ax.set_yticks(zloc)
@@ -43,6 +43,8 @@ ax.set_xticklabels(xlab)
 ax.set_yticklabels(zlab)    
 ax.set_ylabel("Depth [km]", fontsize = 15)
 ax.set_xlabel("Distance [km]", fontsize = 15)
+
+ax.legend(loc = "lower right", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("modeling_test_model.png", dpi = 200)

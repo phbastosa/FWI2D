@@ -47,7 +47,6 @@ protected:
     void set_wavelet();
     void set_geometry();
     void set_properties();
-    void set_seismogram();
     void set_cerjan_dampers();
     void set_main_parameters();
 
@@ -63,13 +62,10 @@ public:
     std::string parameters;
 
     void set_parameters();
-
     void initialization();
-
     void forward_solver();
-
+    void set_seismogram();
     void show_information();    
-
     void export_output_data();
 };
 

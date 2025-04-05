@@ -18,6 +18,7 @@ int main(int argc, char **argv)
 
         modeling->initialization();
         modeling->forward_solver();
+        modeling->set_seismogram();
     }
 
     auto tf = std::chrono::system_clock::now();

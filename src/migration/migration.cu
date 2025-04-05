@@ -120,21 +120,15 @@ void Migration::backward_propagation()
         std::swap(d_P, d_Pold);
         std::swap(d_Pr, d_Prold);
     }    
-
-    cudaMemcpy(partial, d_P, matsize*sizeof(float), cudaMemcpyDeviceToHost);
-    export_binary_float("Ps.bin", partial, matsize);
-
-    cudaMemcpy(partial, d_Pr, matsize*sizeof(float), cudaMemcpyDeviceToHost);
-    export_binary_float("Pr.bin", partial, matsize);
 }
 
 void Migration::set_seismic_source()
 {
     for (int timeId = 0; timeId < nt; timeId++)
         for (int spreadId = 0; spreadId < geometry->spread; spreadId++)
-            seismogram[timeId + spreadId*nt] = seismic_data[timeId + spreadId*nt + srcId*geometry->spread*nt];    
+            seismogram[timeId + spreadId*nt] = seismic_data[timeId + spreadId*nt + srcId*geometry->spread*nt];     
 
-    cudaMemcpy(d_seismogram, seismogram, nt*geometry->spread*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(d_seismogram, seismogram, nt*geometry->spread*sizeof(float), cudaMemcpyHostToDevice);
 }
 
 void Migration::image_enhancing()
@@ -158,12 +152,13 @@ void Migration::image_enhancing()
         int i = (int)(index % nz);
         int j = (int)(index / nz);        
 
-        if((i > 3) && (i < nz-4) && (j > 3) && (j < nx-4)) 
+        if((i > 0) && (i < nz-1) && (j > 0) && (j < nx-1)) 
         {
             float d2I_dz2 = (image[(i-1) + j*nz] - 2.0f*image[i + j*nz] + image[(i+1) + j*nz]) / (dz * dz);
 
             image[index] = d2I_dz2;
-        }    
+        }
+        else image[index] = 0.0f;    
     }
 }
 
@@ -219,10 +214,9 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
         
         Prold[index] = dt*dt*Vp[index]*Vp[index]*(d2Pr_dx2 + d2Pr_dz2) + 2.0f*Pr[index] - Prold[index];
     
-        sumPs[index] += Ps[index]; 
-        sumPr[index] += Pr[index]; 
-
-        image[index] = Ps[index]*Prold[index];
+        sumPs[index] += Ps[index]*Ps[index]; 
+        sumPr[index] += Pr[index]*Pr[index]; 
+        image[index] += Ps[index]*Pr[index];
     }
 }
 

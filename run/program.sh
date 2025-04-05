@@ -87,12 +87,15 @@ case "$1" in
 
 -test_modeling)
 
-    python3 -B ../tests/modeling/generate_models.py
-    python3 -B ../tests/modeling/generate_geometry.py
+    prefix=../tests/modeling
+    parameters=$prefix/parameters.txt
 
-    ./../bin/modeling.exe ../tests/modeling/parameters.txt
+    python3 -B $prefix/generate_models.py
+    python3 -B $prefix/generate_geometry.py
 
-    python3 -B ../tests/modeling/generate_figures.py ../tests/modeling/parameters.txt
+    ./../bin/modeling.exe $parameters
+
+    python3 -B $prefix/generate_figures.py $parameters
 
 	exit 0
 ;;
@@ -112,15 +115,36 @@ case "$1" in
 
 -test_migration)
 
-    python3 -B ../tests/migration/generate_models.py
-    python3 -B ../tests/migration/generate_geometry.py
+    prefix=../tests/migration
+    parameters=$prefix/parameters.txt
 
-    # ./../bin/modeling.exe ../tests/migration/parameters.txt
-    ./../bin/migration.exe ../tests/migration/parameters.txt
+    python3 -B $prefix/generate_models.py
+    python3 -B $prefix/generate_geometry.py
 
-    # python3 -B ../tests/migration/generate_figures.py ../tests/migration/parameters.txt
+    ./../bin/modeling.exe $parameters
+
+    python3 -B $prefix/generate_input_data.py $parameters
+
+    ./../bin/migration.exe $parameters
+
+    python3 -B $prefix/generate_figures.py $parameters
 
 	exit 0
+;;
+
+-clean)
+
+    rm *.png
+    
+    rm ../bin/*.exe
+    rm ../inputs/data/*.bin
+    rm ../inputs/models/*.bin
+    rm ../inputs/geometry/*.txt
+
+    rm ../outputs/data/*.bin
+    rm ../outputs/models/*.bin
+    rm ../outputs/seismic/*.bin
+
 ;;
 
 * ) 

@@ -275,8 +275,6 @@ void Modeling::forward_solver()
 
         std::swap(d_P, d_Pold);
     }
-
-    set_seismogram();
 }
 
 __global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt, bool ABC)
