@@ -118,14 +118,14 @@ case "$1" in
     prefix=../tests/migration
     parameters=$prefix/parameters.txt
 
-    # python3 -B $prefix/generate_models.py
-    # python3 -B $prefix/generate_geometry.py
+    python3 -B $prefix/generate_models.py
+    python3 -B $prefix/generate_geometry.py
 
-    # ./../bin/modeling.exe $parameters
+    ./../bin/modeling.exe $parameters
 
-    # python3 -B $prefix/generate_input_data.py $parameters
+    python3 -B $prefix/generate_input_data.py $parameters
 
-    # ./../bin/migration.exe $parameters
+    ./../bin/migration.exe $parameters
 
     python3 -B $prefix/generate_figures.py $parameters
 
