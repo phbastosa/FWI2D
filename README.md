@@ -1,6 +1,6 @@
 # Classical Full Waveform Inversion
 
-Practicing just for learning by doing.
+Just practicing to learn by doing.
 
 ### Modeling test results
 
