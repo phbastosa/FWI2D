@@ -4,7 +4,7 @@ Practicig just for learning by doing.
 
 ### Modeling test results
 
-![Image](https://github.com/user-attachments/assets/6ccd70d1-d759-48e0-8282-afa590b2b19c)
+![Image](https://github.com/user-attachments/assets/aa35c87c-4c21-4493-b39d-3fde7585717b)
 
 ![Image](https://github.com/user-attachments/assets/6c4787f0-aa0f-42a9-8292-6faa5492babd)
 

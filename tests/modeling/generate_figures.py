@@ -29,7 +29,7 @@ zlab = np.array(zloc*dz, dtype = int)
 
 fig, ax = plt.subplots(figsize = (15, 7))
 
-im = ax.imshow(model, aspect = "auto", cmap = "Greys")
+im = ax.imshow(model, aspect = "auto", cmap = "jet")
 
 cbar = plt.colorbar(im)
 cbar.set_label("Velocity P [m/s]")
