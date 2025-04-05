@@ -22,7 +22,7 @@ XPS = ../inputs/geometry/migration_test_XPS.txt
 # Modeling parameters ---------------------------------------
 #------------------------------------------------------------
 
-time_samples = 8001
+time_samples = 6001
 time_spacing = 1e-3
 
 max_frequency = 30.0
@@ -41,7 +41,7 @@ modeling_output_folder = ../inputs/data/migration_test_
 # Migration parameters --------------------------------------
 #------------------------------------------------------------
 
-migration_input_file = ../inputs/data/migration_test_seismogram_30Hz_8001x243_1ms.bin
+migration_input_file = ../inputs/data/migration_test_seismogram_30Hz_6001x243_1ms.bin
 
 rbc_ratio = 50                      
 rbc_varVp = 1000                      

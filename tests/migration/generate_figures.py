@@ -29,7 +29,7 @@ zlab = np.array(zloc*dz, dtype = int)
 
 fig, ax = plt.subplots(figsize = (10, 6))
 
-im = ax.imshow(model, aspect = "auto", cmap = "Greys")
+im = ax.imshow(model, aspect = "auto", cmap = "jet")
 
 cbar = plt.colorbar(im)
 cbar.set_label("Velocity P [m/s]")
@@ -47,6 +47,66 @@ ax.set_xlabel("Distance [km]", fontsize = 15)
 ax.legend(loc = "lower right", fontsize = 15)
 
 fig.tight_layout()
-plt.savefig("modeling_test_model.png", dpi = 200)
+plt.savefig("migration_test_model.png", dpi = 200)
 plt.show()
 
+#-----------------------------------------------------------------------------------
+
+fmax = float(pyf.catch_parameter(file, "max_frequency"))
+
+nTraces = np.sum(XPS[:,2] - XPS[:,1])
+
+data_file = pyf.catch_parameter(file, "migration_input_file") 
+
+seismic = pyf.read_binary_matrix(nt, nTraces, data_file)
+
+scale = 15*np.std(seismic)
+
+fig, ax = plt.subplots(figsize = (15, 7))
+
+xloc = np.linspace(0, nTraces-1, 5)
+xlab = np.linspace(0, nTraces, 5, dtype = int)
+
+tloc = np.linspace(0, nt-1, 11)
+tlab = np.around(np.linspace(0, (nt-1)*dt, 11), decimals = 1)
+
+im = ax.imshow(seismic, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
+
+ax.set_xticks(xloc)
+ax.set_yticks(tloc)
+ax.set_xticklabels(xlab)    
+ax.set_yticklabels(tlab)    
+ax.set_ylabel("Time [s]", fontsize = 15)
+ax.set_xlabel("Traces", fontsize = 15)
+
+fig.tight_layout()
+plt.savefig("migration_test_data.png", dpi = 200)
+plt.show()
+
+#-----------------------------------------------------------------------------------
+
+image_folder = pyf.catch_parameter(file, "migration_output_folder")
+
+image = pyf.read_binary_matrix(nz, nx, image_folder + f"RTM_section_{nz}x{nx}_{int(fmax)}Hz_{int(dx)}m.bin")
+
+scale = 50*np.std(image)
+
+fig, ax = plt.subplots(figsize = (10, 6))
+
+im = ax.imshow(image, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
+
+ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "ob", label = "receivers")
+ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "or", label = "sources")
+
+ax.set_xticks(xloc)
+ax.set_yticks(zloc)
+ax.set_xticklabels(xlab)    
+ax.set_yticklabels(zlab)    
+ax.set_ylabel("Depth [km]", fontsize = 15)
+ax.set_xlabel("Distance [km]", fontsize = 15)
+
+ax.legend(loc = "lower right", fontsize = 15)
+
+fig.tight_layout()
+plt.savefig("migration_test_image.png", dpi = 200)
+plt.show()
