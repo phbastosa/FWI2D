@@ -82,6 +82,16 @@ std::string catch_parameter(std::string target, std::string file)
     
     parameters.close();
 
+    if (variable.find('"') == 0)
+    {
+        remove(variable.begin(), variable.end(), '"');
+    }
+    else if (variable.find("[") == 0)
+    {
+        remove(variable.begin(), variable.end(), '[');
+        remove(variable.begin(), variable.end(), ']');
+    }
+
     variable.erase(remove(variable.begin(), variable.end(), ' '), variable.end());
 
     return variable;

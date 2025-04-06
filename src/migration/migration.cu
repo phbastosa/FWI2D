@@ -10,9 +10,6 @@ void Migration::set_parameters()
 
     ABC = false;
 
-    rbc_ratio = std::stof(catch_parameter("rbc_ratio", parameters));
-    rbc_varVp = std::stof(catch_parameter("rbc_varVp", parameters));
-
     set_coordinates();
 
     input_folder = catch_parameter("migration_input_folder", parameters);
@@ -56,13 +53,13 @@ void Migration::show_information()
                                        ", x = " << geometry->xsrc[geometry->sInd[srcId]] << ") m\n\n";
 
     std::cout << "-------------------------------------------------------------------------------\n";
-    std::cout << stage << std::endl;
+    std::cout << stage_info << std::endl;
     std::cout << "-------------------------------------------------------------------------------\n";                                                                          
 }
 
 void Migration::forward_propagation()
 {   
-    stage = "Forward propagation";
+    stage_info = "Forward propagation";
 
     show_information();
 
@@ -74,7 +71,7 @@ void Migration::forward_propagation()
 
 void Migration::backward_propagation()
 {
-    stage = "Backward propagation";
+    stage_info = "Backward propagation";
 
     show_information();
 

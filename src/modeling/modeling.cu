@@ -23,7 +23,11 @@ void Modeling::set_main_parameters()
     dt = std::stof(catch_parameter("time_spacing", parameters));
 
     nb = std::stoi(catch_parameter("boundary_samples", parameters));
-    bd = std::stof(catch_parameter("boundary_damping", parameters));
+    
+    bd = std::stof(catch_parameter("abc_damping", parameters));
+
+    rbc_ratio = std::stof(catch_parameter("rbc_ratio", parameters));
+    rbc_varVp = std::stof(catch_parameter("rbc_varVp", parameters));
 
     fmax = std::stof(catch_parameter("max_frequency", parameters));
 

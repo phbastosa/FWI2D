@@ -55,8 +55,8 @@ case "$1" in
     echo -e "../bin/\033[31mmodeling.exe\033[m" 
     nvcc $admin $geometry $modeling $modeling_main $flags -o ../bin/modeling.exe
 
-    # echo -e "../bin/\033[31minversion.exe\033[m" 
-    # nvcc $admin $geometry $modeling $inversion $inversion_main $flags -o ../bin/inversion.exe
+    echo -e "../bin/\033[31minversion.exe\033[m" 
+    nvcc $admin $geometry $modeling $inversion $inversion_main $flags -o ../bin/inversion.exe
 
     echo -e "../bin/\033[31mmigration.exe\033[m"
     nvcc $admin $geometry $modeling $migration $migration_main $flags -o ../bin/migration.exe
@@ -118,7 +118,7 @@ case "$1" in
 
     len=${#freq_array[@]}
 
-    ./../bin/modeling.exe $parameters
+    # ./../bin/modeling.exe $parameters
 
     for (( i=1; i<$len; i++ )); do
 
@@ -127,18 +127,18 @@ case "$1" in
 
         sed -i "s|max_frequency = $fo.0|max_frequency = $fi.0|g" "$parameters"
 
-        ./../bin/modeling.exe $parameters
+        # ./../bin/modeling.exe $parameters
     done
 
-    sed -i "s|max_frequency = $fi.0|max_frequency = 5.0|g" "$parameters"
+    sed -i "s|max_frequency = $fi.0|max_frequency = 15.0|g" "$parameters"
 
     sed -i "s|$true_model|$init_model|g" "$parameters"
 
-    # ./../bin/inversion.exe $parameters
+    ./../bin/inversion.exe $parameters
 
-    # sed -i "s|$init_model|$true_model|g" "$parameters"
+    sed -i "s|$init_model|$true_model|g" "$parameters"
 
-    # python3 -B $prefix/generate_figures.py $parameters
+    python3 -B $prefix/generate_figures.py $parameters
 
     exit 0
 ;;

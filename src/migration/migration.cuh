@@ -18,7 +18,7 @@ protected:
     float * sumPr = nullptr;
     float * partial = nullptr;
 
-    std::string stage;
+    std::string stage_info;
     std::string input_folder;
     std::string output_folder;
     

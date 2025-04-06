@@ -8,7 +8,7 @@ z_samples = 201
 x_spacing = 10.0
 z_spacing = 10.0
 
-model_file = ../inputs/models/inversion_test_init_model_201x501_10m.bin 
+model_file = ../inputs/models/inversion_test_true_model_201x501_10m.bin 
 
 #------------------------------------------------------------
 # Geometry --------------------------------------------------
@@ -25,10 +25,14 @@ XPS = ../inputs/geometry/inversion_test_XPS.txt
 time_samples = 4001
 time_spacing = 1e-3
 
-max_frequency = 5.0
+max_frequency = 15.0
 
 boundary_samples = 100
-boundary_damping = 0.0015 
+
+rbc_ratio = 50                      
+rbc_varVp = 1000                      
+
+abc_damping = 0.0015 
 
 modeling_output_folder = ../inputs/data/inversion_test_
 
@@ -36,13 +40,14 @@ modeling_output_folder = ../inputs/data/inversion_test_
 # Inversion parameters --------------------------------------
 #------------------------------------------------------------
 
-inverion_input_data_folder = ../inputs/data/inversion_test_ 
+inverion_input_folder = ../inputs/data/inversion_test_ 
 
 multi_frequency = [15, 20, 25, 30] 
 
+max_iteration = 1 
 
 
-
+inversion_output_folder = ../outputs/models/inversion_test_
 
 #------------------------------------------------------------
 # Migration parameters --------------------------------------
