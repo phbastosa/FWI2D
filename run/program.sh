@@ -102,13 +102,43 @@ case "$1" in
 
 -test_inversion) 
 
-    # python3 -B ../tests/inversion/generate_models.py
-    # python3 -B ../tests/inversion/generate_geometry.py
+    prefix=../tests/inversion
+    parameters=$prefix/parameters.txt
 
-    # python3 -B $modeling ../tests/inversion/parameters.txt
-    # python3 -B $inversion ../tests/inversion/parameters.txt
+    python3 -B $prefix/generate_models.py
+    python3 -B $prefix/generate_geometry.py
+ 
+    true_model="model_file = ../inputs/models/inversion_test_true_model_201x501_10m.bin"
+    init_model="model_file = ../inputs/models/inversion_test_init_model_201x501_10m.bin"
 
-    # python3 -B ../tests/inversion/generate_figures.py
+    freqs=$(grep '^multi_frequency' $parameters)
+    array=$(echo "$freqs" | sed -E 's/.*=\s*\[(.*)\]/\1/' | tr -d ' ')
+
+    IFS=',' read -r -a freq_array <<< $array
+
+    len=${#freq_array[@]}
+
+    ./../bin/modeling.exe $parameters
+
+    for (( i=1; i<$len; i++ )); do
+
+        fo=${freq_array[$((i-1))]}
+        fi=${freq_array[$i]}
+
+        sed -i "s|max_frequency = $fo.0|max_frequency = $fi.0|g" "$parameters"
+
+        ./../bin/modeling.exe $parameters
+    done
+
+    sed -i "s|max_frequency = $fi.0|max_frequency = 5.0|g" "$parameters"
+
+    sed -i "s|$true_model|$init_model|g" "$parameters"
+
+    # ./../bin/inversion.exe $parameters
+
+    # sed -i "s|$init_model|$true_model|g" "$parameters"
+
+    # python3 -B $prefix/generate_figures.py $parameters
 
     exit 0
 ;;

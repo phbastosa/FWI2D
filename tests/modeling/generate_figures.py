@@ -4,22 +4,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import functions as pyf
 
-file = str(sys.argv[1])
+parameters = str(sys.argv[1])
 
-SPS = np.loadtxt(pyf.catch_parameter(file,"SPS"), delimiter = ",", dtype = np.float32) 
-RPS = np.loadtxt(pyf.catch_parameter(file,"RPS"), delimiter = ",", dtype = np.float32) 
-XPS = np.loadtxt(pyf.catch_parameter(file,"XPS"), delimiter = ",", dtype = np.int32) 
+SPS = np.loadtxt(pyf.catch_parameter(parameters,"SPS"), delimiter = ",", dtype = np.float32) 
+RPS = np.loadtxt(pyf.catch_parameter(parameters,"RPS"), delimiter = ",", dtype = np.float32) 
+XPS = np.loadtxt(pyf.catch_parameter(parameters,"XPS"), delimiter = ",", dtype = np.int32) 
 
-nx = int(pyf.catch_parameter(file, "x_samples"))
-nz = int(pyf.catch_parameter(file, "z_samples")) 
+nx = int(pyf.catch_parameter(parameters, "x_samples"))
+nz = int(pyf.catch_parameter(parameters, "z_samples")) 
 
-dx = float(pyf.catch_parameter(file, "x_spacing"))
-dz = float(pyf.catch_parameter(file, "z_spacing"))
+dx = float(pyf.catch_parameter(parameters, "x_spacing"))
+dz = float(pyf.catch_parameter(parameters, "z_spacing"))
 
-nt = int(pyf.catch_parameter(file, "time_samples"))
-dt = float(pyf.catch_parameter(file, "time_spacing"))
+nt = int(pyf.catch_parameter(parameters, "time_samples"))
+dt = float(pyf.catch_parameter(parameters, "time_spacing"))
 
-model = pyf.read_binary_matrix(nz, nx, pyf.catch_parameter(file, "model_file"))
+model = pyf.read_binary_matrix(nz, nx, pyf.catch_parameter(parameters, "model_file"))
 
 xloc = np.linspace(0, nx-1, 11)
 xlab = np.array(xloc*dx, dtype = int)
@@ -49,13 +49,15 @@ plt.savefig("modeling_test_model.png", dpi = 200)
 plt.show()
 
 
-fmax = float(pyf.catch_parameter(file, "max_frequency"))
+fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
 
 nTraces = np.sum(XPS[:,2] - XPS[:,1])
 
-data_folder = pyf.catch_parameter(file, "modeling_output_folder") 
+data_folder = pyf.catch_parameter(parameters, "modeling_output_folder") 
 
-seismic = pyf.read_binary_matrix(nt, nTraces, data_folder + f"seismogram_{int(fmax)}Hz_{nt}x{nTraces}_{int(1e3*dt)}ms.bin")
+template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e3*dt)}ms.bin"
+
+seismic = pyf.read_binary_matrix(nt, nTraces, data_folder + template)
 
 scale = np.std(seismic)
 

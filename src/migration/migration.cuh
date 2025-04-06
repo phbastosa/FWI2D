@@ -19,7 +19,7 @@ protected:
     float * partial = nullptr;
 
     std::string stage;
-    std::string input_file;
+    std::string input_folder;
     std::string output_folder;
     
     void show_information();
