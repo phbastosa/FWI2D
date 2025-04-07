@@ -13,6 +13,9 @@
 # include <iostream>
 # include <algorithm>
 
+# define KW 4    // number of kaiser weights
+# define KS 5.0f // kaiser weights space: controls smoothness
+
 struct Point 
 {
     float x;
@@ -25,6 +28,14 @@ void import_binary_float(std::string path, float * array, int n);
 void export_binary_float(std::string path, float * array, int n);
 
 void import_text_file(std::string path, std::vector<std::string> &elements);
+
+float bessel_i0(float x);
+
+std::vector<float> kaiser(const Point& p, const Point& p00, const Point& p10, 
+                          const Point& p01, const Point& p11, float beta); 
+
+float cubic1d(float P[4], float dx);
+float cubic2d(float P[4][4], float dx, float dy);
 
 std::string catch_parameter(std::string target, std::string file);
 

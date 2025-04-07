@@ -7,10 +7,10 @@ void Migration::set_parameters()
     set_wavelet();
     set_geometry();
     set_properties();
+    set_seismograms();
+    set_coordinates();
 
     ABC = false;
-
-    set_coordinates();
 
     input_folder = catch_parameter("migration_input_folder", parameters);
     output_folder = catch_parameter("migration_output_folder", parameters);

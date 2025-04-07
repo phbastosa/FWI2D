@@ -3,6 +3,8 @@
 
 # include "../modeling/modeling.cuh"
 
+# define CUBIC 4
+
 class Inversion : public Modeling
 {
 private:
@@ -21,8 +23,12 @@ private:
 
     int nPoints_out;
 
+    float * vp = nullptr;
+    float * aux_vp = nullptr;
+
     float * freqs = nullptr;
     float * obs_data = nullptr;
+    float * cal_data = nullptr;
 
     float * d_Pr = nullptr;
     float * d_Prold = nullptr;
@@ -41,10 +47,13 @@ private:
     std::string output_folder; 
     
     std::vector<float> residuo;
-
+    
     void set_seismic_source();
     void forward_propagation();
     void backward_propagation();
+
+    void set_data_interpolation();
+    void set_model_interpolation();
 
 public:
 
@@ -65,6 +74,8 @@ public:
 
     void export_final_model();
     void export_convergence();
+
+    void refresh_memory();
 };
 
 __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt);

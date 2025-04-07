@@ -109,6 +109,71 @@ std::vector<std::string> split(std::string s, char delimiter)
     return tokens;
 }
 
+float bessel_i0(float x) 
+{
+    float k = 1.0f;
+    float sum = 1.0f; 
+    float term = 1.0f;
+
+    while (term > 1e-10f) 
+    {
+        term *= (x / (2.0f * k)) * (x / (2.0f * k));
+        sum += term;
+        k += 1.0f;
+    }
+
+    return sum;
+}
+
+std::vector<float> kaiser(const Point& p, const Point& p00, const Point& p10, 
+                          const Point& p01, const Point& p11, float beta) 
+{
+    std::vector<float> w(4);
+
+    std::vector<Point> corners = {p00, p10, p01, p11};
+
+    float dmax = std::sqrt((p10.x - p00.x) * (p10.x - p00.x) + (p01.z - p00.z) * (p01.z - p00.z));
+ 
+    float denom = bessel_i0(beta);
+    
+    float sum = 0.0;
+
+    for (int i = 0; i < KW; i++) 
+    {
+        float dx = p.x - corners[i].x;
+        float dz = p.z - corners[i].z;
+ 
+        float r = sqrtf(dx*dx + dz*dz);
+
+        float rnorm = std::min(2.0f*r/dmax, 1.0f);
+        
+        float arg = beta*sqrtf(1.0f - rnorm*rnorm);
+        
+        w[i] = bessel_i0(arg) / denom;
+
+        sum += w[i];
+    }
+
+    for (int i = 0; i < KW; i++) w[i] /= sum;
+
+    return w;
+}
+
+float cubic1d(float P[4], float dx)
+{
+    return P[1] + 0.5f*dx*(P[2] - P[0] + dx*(2.0f*P[0] - 5.0f*P[1] + 4.0f*P[2] - P[3] + dx*(3.0f*(P[1] - P[2]) + P[3] - P[0])));
+}
+
+float cubic2d(float P[4][4], float dx, float dy)
+{    
+    float p[4];
+    p[0] = cubic1d(P[0], dy);
+    p[1] = cubic1d(P[1], dy);
+    p[2] = cubic1d(P[2], dy);
+    p[3] = cubic1d(P[3], dy);    
+    return cubic1d(p, dx);
+}
+
 std::random_device rd;  
 std::mt19937 rng(rd()); 
 

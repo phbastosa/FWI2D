@@ -17,23 +17,24 @@ int main(int argc, char **argv)
         inversion->set_model_dimension();
         inversion->set_observed_data();
 
-        // while (true)
-        // {
-        //     inversion->set_calculated_data();
+        while (true)
+        {
+            inversion->set_calculated_data();
 
-        //     inversion->check_convergence();
+            inversion->check_convergence();
 
-        //     if (inversion->converged) break;
+            if (inversion->converged) break;
 
         //     inversion->compute_gradient();
            
         //     inversion->optimization();
 
         //     inversion->update_model();
-        // }
-    
-        inversion->export_convergence();
+        }
+        
+        // inversion->export_convergence();
         inversion->export_final_model();
+        // inversion->refresh_memory();
     }
 
     auto tf = std::chrono::system_clock::now();

@@ -3,10 +3,9 @@
 void Inversion::set_parameters()
 {
     set_main_parameters();
-
-    set_wavelet();
+    
     set_geometry();
-    set_coordinates();
+
     set_cerjan_dampers();
 
     input_folder = catch_parameter("inversion_input_folder", parameters);
@@ -24,38 +23,16 @@ void Inversion::set_parameters()
 
     iteration = 0;
 
-    sumPs = new float[nPoints]();
-    partial = new float[matsize]();
-    gradient = new float[nPoints]();
-
-    cudaMalloc((void**)&(d_Pr), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_Prold), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_sumPs), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_gradient), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_Vp_clean), matsize*sizeof(float));
-}
-
-void Inversion::set_observed_data()
-{
-    obs_data = new float[nt_out*geometry->nTraces]();
-
-    std::string input_file = input_folder + "seismogram_nt" + std::to_string(nt_out) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(freqs[freqId])) + "Hz_" + std::to_string(int(1e3f*dt_out)) + "ms.bin";
-
-    import_binary_float(input_file, obs_data, nt_out*geometry->nTraces); 
+    vp = new float[nPoints]();
 }
 
 void Inversion::set_model_dimension()
 {    
-    float N = 4.0f;
-    float S = 0.5f;
-
     std::string initial_model_file;
     std::string current_model_file;
     
     if (freqId == 0)
     {
-        nb_out = nb;
-    
         nx_out = nx; nz_out = nz;
         dx_out = dx; dz_out = dz;
         nt_out = nt; dt_out = dt;
@@ -71,7 +48,34 @@ void Inversion::set_model_dimension()
         model_file = current_model_file;
     }
 
-    float * vp = new float[nPoints_out];
+    set_model_interpolation();
+
+    set_wavelet();
+    set_coordinates();
+
+    set_seismograms();
+
+    cudaMalloc((void**)&(d_P), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Vp), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pr), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pold), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Prold), matsize*sizeof(float));
+
+    cudaMalloc((void**)&(d_Vp_clean), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_gradient), matsize*sizeof(float));
+
+    cudaMemcpy(d_Vp, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Vp_clean, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
+
+    cudaMemset(d_gradient, 0.0f, matsize*sizeof(float));
+}
+
+void Inversion::set_model_interpolation()
+{
+    float N = 5.0f;
+    float S = 0.5f;
+
+    float p[CUBIC][CUBIC];
 
     import_binary_float(model_file, vp, nPoints_out);
     
@@ -89,24 +93,88 @@ void Inversion::set_model_dimension()
     dz = vmin / (N*freqs[freqId]);
     
     dt = S / vmax * (1.0f / sqrtf(1.0f / (dx*dx) + 1.0f / (dz*dz)));
-    dt = 1e-3f*std::floor(1e3f*dt*2.0f)*0.5f; 
+    dt = 1e-3f*floorf(1e3f*dt*2.0f)*0.5f; 
 
-    float x_max = (nx_out-1)*dx_out;
-    float z_max = (nz_out-1)*dz_out;
+    float x_max = (float)(nx_out-1)*dx_out;
+    float z_max = (float)(nz_out-1)*dz_out;
+    float t_max = (float)(nt_out-1)*dt_out;
 
-    nx = (int)(x_max / dx) + 1;
-    nz = (int)(z_max / dz) + 1;
+    nx = (int)(ceilf(x_max / dx)) + 1;
+    nz = (int)(ceilf(z_max / dz)) + 1;
+    nt = (int)(ceilf(t_max / dt)) + 1;
 
-    // cubic interpolation    
+    nPoints = nx*nz;
 
+    nxx = nx + 2*nb;
+    nzz = nz + 2*nb;
 
+    matsize = nxx*nzz;
 
+    aux_vp = new float[nPoints]();
+
+    for (int index = 0; index < nPoints; index++)
+    {
+        int i = (int)(index % nz);
+        int j = (int)(index / nz);   
+
+        float z = i*dz;
+        float x = j*dx;     
         
+        float x0 = floorf(x/dx_out)*dx_out;
+        float z0 = floorf(z/dz_out)*dz_out;
 
+        float x1 = floorf(x/dx_out)*dx_out + dx_out;
+        float z1 = floorf(z/dz_out)*dz_out + dz_out;
 
-    // cudaMemcpy(d_Vp_clean, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
+        float pdx = (x - x0) / (x1 - x0);  
+        float pdz = (z - z0) / (z1 - z0); 
 
-    // cudaMemset(d_gradient, 0.0f, matsize*sizeof(float));
+        for (int pIdz = 0; pIdz < CUBIC; pIdz++)
+        {
+            for (int pIdx = 0; pIdx < CUBIC; pIdx++)
+            {
+                int pz = (int)(floorf(z0/dz_out)) + pIdz - 1;
+                int px = (int)(floorf(x0/dx_out)) + pIdx - 1;    
+                
+                if (pz < 0) pz = 0;
+                if (px < 0) px = 0;
+                
+                if (pz > nz_out) pz = nz_out;
+                if (px > nx_out) px = nx_out;
+                
+                p[pIdx][pIdz] = vp[pz + px*nz_out];
+            }    
+        }
+
+        aux_vp[i + j*nz] = cubic2d(p, pdx, pdz); 
+    }
+
+    Vp = new float[matsize]();
+
+    expand_boundary(aux_vp, Vp);    
+}
+
+void Inversion::set_observed_data()
+{
+    obs_data = new float[nt_out*geometry->nTraces]();
+    cal_data = new float[nt_out*geometry->nTraces]();
+
+    std::string input_file = input_folder + "seismogram_nt" + std::to_string(nt_out) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(freqs[freqId])) + "Hz_" + std::to_string(int(1e3f*dt_out)) + "ms.bin";
+
+    import_binary_float(input_file, obs_data, nt_out*geometry->nTraces); 
+
+    float amp_max = 0.0f;
+
+    # pragma omp parallel for
+    for (int index = 0; index < nt_out*geometry->nTraces; index++) 
+    {
+        if (amp_max < fabsf(obs_data[index])) 
+            amp_max = fabsf(obs_data[index]); 
+    }
+
+    # pragma omp parallel for
+    for (int index = 0; index < nt_out*geometry->nTraces; index++) 
+        obs_data[index] *= 1.0f / amp_max;
 }
 
 void Inversion::set_calculated_data()
@@ -121,6 +189,82 @@ void Inversion::set_calculated_data()
         forward_solver();
         set_seismogram();
     }
+
+    set_data_interpolation();
+
+    float amp_max = 0.0f;
+
+    # pragma omp parallel for
+    for (int index = 0; index < nt_out*geometry->nTraces; index++) 
+    {
+        if (amp_max < fabsf(cal_data[index])) 
+            amp_max = fabsf(cal_data[index]); 
+    }
+
+    # pragma omp parallel for
+    for (int index = 0; index < nt_out*geometry->nTraces; index++) 
+        cal_data[index] *= 1.0f / amp_max;
+}
+
+void Inversion::set_data_interpolation()
+{
+    std::vector<double> trace_in(nt);      
+    std::vector<double> trace_out(nt_out); 
+
+    fftw_plan forward_plan;
+    fftw_plan inverse_plan;
+
+    fftw_complex * T_in = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * nt);
+    fftw_complex * T_out = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * nt_out);
+
+    int ncopy = std::min(nt, nt_out);
+    int kcopy = (int)(ncopy / 2);
+    
+    for (int index = 0; index < geometry->nTraces; index++)
+    {   
+        # pragma omp parallel for
+        for (int tId = 0; tId < nt; tId++)
+            trace_in[tId] = (double)(seismic_data[tId + index*nt]);
+
+        forward_plan = fftw_plan_dft_r2c_1d(nt, trace_in.data(), T_in, FFTW_ESTIMATE);
+        fftw_execute(forward_plan);
+
+        # pragma omp parallel for
+        for (int tId = 0; tId < nt_out; tId++) 
+        {
+            T_out[tId][0] = 0.0;
+            T_out[tId][1] = 0.0;
+        }
+
+        # pragma omp parallel for
+        for (int tId = 0; tId < kcopy; tId++) 
+        {
+            T_out[tId][0] = T_in[tId][0];
+            T_out[tId][1] = T_in[tId][1];
+        }
+
+        # pragma omp parallel for
+        for (int tId = 0; tId < kcopy; tId++) 
+        {
+            T_out[nt_out - kcopy + tId][0] = T_in[nt - kcopy + tId][0];
+            T_out[nt_out - kcopy + tId][1] = T_in[nt - kcopy + tId][1];
+        }
+
+        inverse_plan = fftw_plan_dft_c2r_1d(nt_out, T_out, trace_out.data(), FFTW_ESTIMATE);
+        fftw_execute(inverse_plan);
+        
+        # pragma omp parallel for
+        for (int tId = 0; tId < nt_out; tId++) 
+        {
+            trace_out[tId] *= 1.0 / (double)(nt_out) * ((double)(nt_out) / (double)(nt));
+            cal_data[tId + index*nt_out] = (float)(trace_out[tId]);
+        }
+    }
+
+    fftw_free(T_in);
+    fftw_free(T_out);
+    fftw_destroy_plan(forward_plan);
+    fftw_destroy_plan(inverse_plan);
 }
 
 void Inversion::show_information()
@@ -168,12 +312,13 @@ void Inversion::check_convergence()
 {
     float square_difference = 0.0f;
 
-    for (int index = 0; index < nt*geometry->nTraces; index++)
+    for (int index = 0; index < nt_out*geometry->nTraces; index++)
     {
-        seismic_data[index] = obs_data[index] - seismic_data[index];
-
-        square_difference += seismic_data[index]*seismic_data[index];
+        cal_data[index] = obs_data[index] - cal_data[index];
+        square_difference += cal_data[index]*cal_data[index];
     }
+
+    export_binary_float("cal_data.bin", cal_data, nt_out*geometry->nTraces);
 
     residuo.push_back(sqrtf(square_difference));
 
@@ -198,8 +343,6 @@ void Inversion::compute_gradient()
         forward_propagation();
         backward_propagation();
     }
-    
-
 
     cudaMemcpy(d_Vp, d_Vp_clean, matsize*sizeof(float), cudaMemcpyDeviceToDevice);
 
@@ -288,11 +431,100 @@ void Inversion::export_convergence()
 
 void Inversion::export_final_model()
 {
+    // remember to imterpolate only the variation of velocity
+
     model_file = output_folder + "final_model_" + std::to_string(int(freqs[freqId])) + "Hz_" + std::to_string(nz_out) + "x" + std::to_string(nx_out) + ".bin";
+
+    // float p[CUBIC][CUBIC];
+
+    // float * aux_vp = new float[nPoints_out]();
+
+    // int skipx = (int)((nx_out - 1)/(nx - 1));
+    // int skipz = (int)((nz_out - 1)/(nz - 1));
+
+    // reduce_boundary(Vp, vp);
+
+    // for (int index = 0; index < nPoints_out; index++)
+    // {
+    //     int i = (int)(index % nz_out);
+    //     int j = (int)(index / nz_out);   
+
+    //     if ((i >= skipz) && (i < nz_out-skipz) && (j >= skipx) && (j < nx_out-skipx))
+    //     {
+    //         float z = i*dz_out;    
+    //         float x = j*dx_out;    
+
+    //         float x0 = floorf(x/dx)*dx;
+    //         float z0 = floorf(z/dz)*dz;
+
+    //         float x1 = floorf(x/dx)*dx + dx;
+    //         float z1 = floorf(z/dz)*dz + dz;        
+
+    //         float pdx = (x - x0) / (x1 - x0);  
+    //         float pdz = (z - z0) / (z1 - z0); 
+
+    //         for (int pIdz = 0; pIdz < CUBIC; pIdz++)
+    //         {
+    //             for (int pIdx = 0; pIdx < CUBIC; pIdx++)
+    //             {
+    //                 int pz = (int)(floorf(z0/dz)) + pIdz - 1;
+    //                 int px = (int)(floorf(x0/dx)) + pIdx - 1;    
+                    
+    //                 if (pz < 0) pz = 0;
+    //                 if (px < 0) px = 0;
+                    
+    //                 if (pz > nz) pz = nz;
+    //                 if (px > nx) px = nx;
+                    
+    //                 p[pIdx][pIdz] = vp[pz + px*nz];
+    //             }    
+    //         }
+
+    //         vp_out[i + j*nz_out] = cubic2d(p, pdx, pdz); 
+    //     }
+    // }
     
-    float * vp = new float[nPoints_out];
+    // for (int i = 0; i < skipz; i++)
+    // {
+    //     for (int j = skipx; j < nx_out-skipx; j++)
+    //     {
+    //         vp_out[i + j*nz_out] = vp_out[skipz + j*nz_out];
+    //         vp_out[nz_out-i-1 + j*nz_out] = vp_out[nz_out-skipz-1 + j*nz_out];
+    //     }
+    // }
+
+    // for (int i = 0; i < nz_out; i++)
+    // {
+    //     for (int j = 0; j < skipx; j++)
+    //     {
+    //         vp_out[i + j*nz_out] = vp_out[i + skipx*nz_out];
+    //         vp_out[i + (nx_out-j-1)*nz_out] = vp_out[i + (nx_out-skipx-1)*nz_out];
+    //     }
+    // }
 
     export_binary_float(model_file, vp, nPoints_out);
+}
+
+void Inversion::refresh_memory()
+{
+    delete[] Vp;
+    delete[] aux_vp;
+    delete[] obs_data;
+    delete[] cal_data;
+    delete[] seismogram;
+    delete[] seismic_data;
+
+    cudaFree(d_X);
+    cudaFree(d_Z);
+    cudaFree(d_P);
+    cudaFree(d_Pr);
+    cudaFree(d_Vp);
+    cudaFree(d_Pold);
+    cudaFree(d_Prold);
+    cudaFree(d_wavelet);
+    cudaFree(d_Vp_clean);
+    cudaFree(d_gradient);
+    cudaFree(d_seismogram);
 }
 
 __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt)
