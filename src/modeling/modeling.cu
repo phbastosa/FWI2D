@@ -250,11 +250,18 @@ void Modeling::reduce_boundary(float * input, float * output)
 void Modeling::show_information()
 {
     auto clear = system("clear");
-    
-    std::cout << "-------------------------------------------------------------------------------\n";
-    std::cout << "                               \033[34mSeismic Modeling\033[0;0m\n";
-    std::cout << "-------------------------------------------------------------------------------\n\n";
 
+    std::string title = "\033[34mSeismic Modeling\033[0;0m";
+
+    int width = 80;
+    int padding = (width - title.length() + 8) / 2;
+
+    std::string line(width, '-');
+
+    std::cout << line << '\n';
+    std::cout << std::string(padding, ' ') << title << '\n';
+    std::cout << line << '\n';
+    
     std::cout << "Model dimensions: (z = " << (nz - 1)*dz << ", x = " << (nx - 1)*dx <<") m\n\n";
 
     std::cout << "Running shot " << srcId + 1 << " of " << geometry->nrel << " in total\n\n";

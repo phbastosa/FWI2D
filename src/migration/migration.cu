@@ -21,7 +21,6 @@ void Migration::set_parameters()
 
     image = new float[nPoints]();
     sumPs = new float[nPoints]();
-    sumPr = new float[nPoints]();
 
     partial = new float[matsize]();
 
@@ -29,20 +28,25 @@ void Migration::set_parameters()
     cudaMalloc((void**)&(d_Prold), matsize*sizeof(float));
     cudaMalloc((void**)&(d_image), matsize*sizeof(float));
     cudaMalloc((void**)&(d_sumPs), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_sumPr), matsize*sizeof(float));
 
     cudaMemset(d_image, 0.0f, matsize*sizeof(float));
     cudaMemset(d_sumPs, 0.0f, matsize*sizeof(float));
-    cudaMemset(d_sumPr, 0.0f, matsize*sizeof(float));
 }
 
 void Migration::show_information()
 {
     auto clear = system("clear");
-    
-    std::cout << "-------------------------------------------------------------------------------\n";
-    std::cout << "                          \033[34mReverse Time Migration\033[0;0m\n";
-    std::cout << "-------------------------------------------------------------------------------\n\n";
+
+    std::string title = "\033[34mReverse Time Migration\033[0;0m";
+
+    int width = 80;
+    int padding = (width - title.length() + 8) / 2;
+
+    std::string line(width, '-');
+
+    std::cout << line << '\n';
+    std::cout << std::string(padding, ' ') << title << '\n';
+    std::cout << line << '\n';
 
     std::cout << "Model dimensions: (z = " << (nz - 1)*dz << 
                                   ", x = " << (nx - 1)*dx <<") m\n\n";
@@ -83,7 +87,7 @@ void Migration::backward_propagation()
 
     for (int tId = 0; tId < nt; tId++)
     {
-        RTM<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_image, d_sumPs, d_sumPr, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dx, dz, dt);
+        RTM<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_image, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dx, dz, dt);
     
         std::swap(d_P, d_Pold);
         std::swap(d_Pr, d_Prold);
@@ -106,9 +110,6 @@ void Migration::image_enhancing()
 
     cudaMemcpy(partial, d_sumPs, matsize*sizeof(float), cudaMemcpyDeviceToHost);
     reduce_boundary(partial, sumPs);
-
-    cudaMemcpy(partial, d_sumPr, matsize*sizeof(float), cudaMemcpyDeviceToHost);
-    reduce_boundary(partial, sumPr);
 
     # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
@@ -136,7 +137,7 @@ void Migration::export_seismic()
     export_binary_float(output_file, image, nPoints);
 }
 
-__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, float * sumPr, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt)
+__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -183,7 +184,6 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
         Prold[index] = dt*dt*Vp[index]*Vp[index]*(d2Pr_dx2 + d2Pr_dz2) + 2.0f*Pr[index] - Prold[index];
     
         sumPs[index] += Ps[index]*Ps[index]; 
-        sumPr[index] += Pr[index]*Pr[index]; 
         image[index] += Ps[index]*Pr[index];
     }
 }

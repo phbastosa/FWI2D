@@ -138,7 +138,7 @@ case "$1" in
 
     sed -i "s|$init_model|$true_model|g" "$parameters"
 
-    python3 -B $prefix/generate_figures.py $parameters
+    # python3 -B $prefix/generate_figures.py $parameters
 
     exit 0
 ;;

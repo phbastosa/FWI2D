@@ -40,7 +40,7 @@ modeling_output_folder = ../inputs/data/inversion_test_
 # Inversion parameters --------------------------------------
 #------------------------------------------------------------
 
-inverion_input_folder = ../inputs/data/inversion_test_ 
+inversion_input_folder = ../inputs/data/inversion_test_ 
 
 multi_frequency = [15, 20, 25, 30] 
 

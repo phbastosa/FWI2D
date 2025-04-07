@@ -11,11 +11,9 @@ protected:
     float * d_Prold = nullptr;
     float * d_image = nullptr;
     float * d_sumPs = nullptr;
-    float * d_sumPr = nullptr;
 
     float * image = nullptr;
     float * sumPs = nullptr;
-    float * sumPr = nullptr;
     float * partial = nullptr;
 
     std::string stage_info;
@@ -34,6 +32,6 @@ public:
     void export_seismic();
 };
 
-__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, float * sumPr, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt);
+__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt);
 
 # endif

@@ -10,31 +10,33 @@ int main(int argc, char **argv)
 
     auto ti = std::chrono::system_clock::now();
 
-    for (int fId = 0; fId < inversion->nFreqs; fId++)
+    for (int freqId = 0; freqId < 1; freqId++)
     {
-        inversion->set_observed_data();
+        inversion->freqId = freqId;
+
         inversion->set_model_dimension();
+        inversion->set_observed_data();
 
-        while (true)
-        {
-            inversion->forward_modeling();
+        // while (true)
+        // {
+        //     inversion->set_calculated_data();
 
-            inversion->check_convergence();
+        //     inversion->check_convergence();
 
-            if (inversion->converged) break;
+        //     if (inversion->converged) break;
 
-            inversion->compute_gradient();
+        //     inversion->compute_gradient();
            
-            inversion->optimization();
+        //     inversion->optimization();
 
-            inversion->update_model();
-        }
+        //     inversion->update_model();
+        // }
     
-        // modeling->export_output_data();
+        inversion->export_convergence();
+        inversion->export_final_model();
     }
 
     auto tf = std::chrono::system_clock::now();
-
 
     std::chrono::duration<double> elapsed_seconds = tf - ti;
     std::cout << "\nRun time: " << elapsed_seconds.count() << " s." << std::endl;
