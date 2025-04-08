@@ -25,9 +25,9 @@ int main(int argc, char **argv)
 
             if (inversion->converged) break;
 
-            inversion->compute_gradient();
+            // inversion->compute_gradient();
            
-            inversion->optimization();
+            // inversion->optimization();
 
         //     inversion->update_model();
         }

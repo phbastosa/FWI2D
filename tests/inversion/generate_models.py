@@ -13,7 +13,7 @@ init_model = np.zeros((nz, nx)) + 1500
 
 dv = 10.0
 wb = 500.0
-vi = 1650.0
+vi = 1550.0
 
 for i in range(nz):
     if i > wb/dh:

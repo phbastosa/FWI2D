@@ -1,6 +1,6 @@
 import numpy as np
 
-ns = 11
+ns = 21
 nr = 100
 
 SPS = np.zeros((ns, 2))

@@ -117,41 +117,65 @@ void Inversion::set_model_interpolation()
 
     aux_vp = new float[nPoints]();
 
+    int skipx = (int)((nx_out - 1)/(nx - 1));
+    int skipz = (int)((nz_out - 1)/(nz - 1));
+
     for (int index = 0; index < nPoints; index++)
     {
         int i = (int)(index % nz);
         int j = (int)(index / nz);   
 
-        float z = i*dz;
-        float x = j*dx;     
-        
-        float x0 = floorf(x/dx_out)*dx_out;
-        float z0 = floorf(z/dz_out)*dz_out;
-
-        float x1 = floorf(x/dx_out)*dx_out + dx_out;
-        float z1 = floorf(z/dz_out)*dz_out + dz_out;
-
-        float pdx = (x - x0) / (x1 - x0);  
-        float pdz = (z - z0) / (z1 - z0); 
-
-        for (int pIdz = 0; pIdz < CUBIC; pIdz++)
+        if ((i >= skipz) && (i < nz-skipz) && (j >= skipx) && (j < nx-skipx))
         {
-            for (int pIdx = 0; pIdx < CUBIC; pIdx++)
-            {
-                int pz = (int)(floorf(z0/dz_out)) + pIdz - 1;
-                int px = (int)(floorf(x0/dx_out)) + pIdx - 1;    
-                
-                if (pz < 0) pz = 0;
-                if (px < 0) px = 0;
-                
-                if (pz > nz_out) pz = nz_out;
-                if (px > nx_out) px = nx_out;
-                
-                p[pIdx][pIdz] = vp[pz + px*nz_out];
-            }    
-        }
+            float z = i*dz;
+            float x = j*dx;     
+        
+            float x0 = floorf(x/dx_out)*dx_out;
+            float z0 = floorf(z/dz_out)*dz_out;
 
-        aux_vp[i + j*nz] = cubic2d(p, pdx, pdz); 
+            float x1 = floorf(x/dx_out)*dx_out + dx_out;
+            float z1 = floorf(z/dz_out)*dz_out + dz_out;
+
+            float pdx = (x - x0) / (x1 - x0);  
+            float pdz = (z - z0) / (z1 - z0); 
+
+            for (int pIdz = 0; pIdz < CUBIC; pIdz++)
+            {
+                for (int pIdx = 0; pIdx < CUBIC; pIdx++)
+                {
+                    int pz = (int)(floorf(z0/dz_out)) + pIdz - 1;
+                    int px = (int)(floorf(x0/dx_out)) + pIdx - 1;    
+                    
+                    if (pz < 0) pz = 0;
+                    if (px < 0) px = 0;
+                    
+                    if (pz > nz_out) pz = nz_out;
+                    if (px > nx_out) px = nx_out;
+                    
+                    p[pIdx][pIdz] = vp[pz + px*nz_out];
+                }    
+            }
+
+            aux_vp[i + j*nz] = cubic2d(p, pdx, pdz); 
+        }
+    }
+
+    for (int i = 0; i < skipz; i++)
+    {
+        for (int j = skipx; j < nx-skipx; j++)
+        {
+            aux_vp[i + j*nz] = aux_vp[skipz + j*nz];
+            aux_vp[nz-i-1 + j*nz] = aux_vp[nz-skipz-1 + j*nz];
+        }
+    }
+
+    for (int i = 0; i < nz; i++)
+    {
+        for (int j = 0; j < skipx; j++)
+        {
+            aux_vp[i + j*nz] = aux_vp[i + skipx*nz];
+            aux_vp[i + (nx-j-1)*nz] = aux_vp[i + (nx-skipx-1)*nz];
+        }
     }
 
     Vp = new float[matsize]();
@@ -314,13 +338,16 @@ void Inversion::check_convergence()
 {
     float square_difference = 0.0f;
 
+    export_binary_float("obs_data_" + std::to_string(iteration) + ".bin", obs_data, nt_out*geometry->nTraces);
+    export_binary_float("cal_data_" + std::to_string(iteration) + ".bin", cal_data, nt_out*geometry->nTraces);
+
     for (int index = 0; index < nt_out*geometry->nTraces; index++)
     {
         cal_data[index] = obs_data[index] - cal_data[index];
         square_difference += cal_data[index]*cal_data[index];
     }
 
-    export_binary_float("cal_data.bin", cal_data, nt_out*geometry->nTraces);
+    export_binary_float("res_data_" + std::to_string(iteration) + ".bin", cal_data, nt_out*geometry->nTraces);
 
     residuo.push_back(sqrtf(square_difference));
 

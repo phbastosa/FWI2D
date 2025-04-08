@@ -130,7 +130,7 @@ case "$1" in
         ./../bin/modeling.exe $parameters
     done
 
-    sed -i "s|max_frequency = $fi.0|max_frequency = 15.0|g" "$parameters"
+    sed -i "s|max_frequency = $fi.0|max_frequency = 25.0|g" "$parameters"
 
     sed -i "s|$true_model|$init_model|g" "$parameters"
 
