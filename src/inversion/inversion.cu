@@ -55,11 +55,16 @@ void Inversion::set_model_dimension()
 
     set_seismograms();
 
+    sumPs = new float [nPoints]();
+    partial = new float[matsize]();
+    gradient = new float[nPoints]();
+
     cudaMalloc((void**)&(d_P), matsize*sizeof(float));
     cudaMalloc((void**)&(d_Vp), matsize*sizeof(float));
     cudaMalloc((void**)&(d_Pr), matsize*sizeof(float));
     cudaMalloc((void**)&(d_Pold), matsize*sizeof(float));
     cudaMalloc((void**)&(d_Prold), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_sumPs), matsize*sizeof(float));
 
     cudaMalloc((void**)&(d_Vp_clean), matsize*sizeof(float));
     cudaMalloc((void**)&(d_gradient), matsize*sizeof(float));
@@ -237,17 +242,17 @@ void Inversion::set_data_interpolation()
         }
 
         # pragma omp parallel for
-        for (int tId = 0; tId < kcopy; tId++) 
+        for (int tId = 0; tId <= kcopy; tId++) 
         {
             T_out[tId][0] = T_in[tId][0];
             T_out[tId][1] = T_in[tId][1];
         }
-
+        
         # pragma omp parallel for
-        for (int tId = 0; tId < kcopy; tId++) 
+        for (int tId = 1; tId < kcopy; tId++) 
         {
-            T_out[nt_out - kcopy + tId][0] = T_in[nt - kcopy + tId][0];
-            T_out[nt_out - kcopy + tId][1] = T_in[nt - kcopy + tId][1];
+            T_out[nt_out - tId][0] = T_in[nt - tId][0];
+            T_out[nt_out - tId][1] = T_in[nt - tId][1];
         }
 
         inverse_plan = fftw_plan_dft_c2r_1d(nt_out, T_out, trace_out.data(), FFTW_ESTIMATE);
@@ -255,10 +260,7 @@ void Inversion::set_data_interpolation()
         
         # pragma omp parallel for
         for (int tId = 0; tId < nt_out; tId++) 
-        {
-            trace_out[tId] *= 1.0 / (double)(nt_out) * ((double)(nt_out) / (double)(nt));
             cal_data[tId + index*nt_out] = (float)(trace_out[tId]);
-        }
     }
 
     fftw_free(T_in);
@@ -343,7 +345,7 @@ void Inversion::compute_gradient()
         forward_propagation();
         backward_propagation();
     }
-
+    
     cudaMemcpy(d_Vp, d_Vp_clean, matsize*sizeof(float), cudaMemcpyDeviceToDevice);
 
     ABC = true;
@@ -405,7 +407,7 @@ void Inversion::optimization()
     for (int index = 0; index < nPoints; index++)
         gradient[index] /= sumPs[index];
 
-    export_binary_float("gradient.bin", gradient, nPoints);
+    export_binary_float("gradient_" + std::to_string(nz) + ".bin" , gradient, nPoints);
 
 
 
@@ -416,24 +418,7 @@ void Inversion::update_model()
 {
     stage_info = "Updating model ...";
 
-    // model_file = output_folder + "model_iteration_" + std::to_string(iteration) + "_" + std::to_string(int(freqs[freqId])) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";  
-
-    // update Vp and Vp_clean (cuda copy)
-
-}
-
-void Inversion::export_convergence()
-{
-
-
-
-}
-
-void Inversion::export_final_model()
-{
-    // remember to imterpolate only the variation of velocity
-
-    model_file = output_folder + "final_model_" + std::to_string(int(freqs[freqId])) + "Hz_" + std::to_string(nz_out) + "x" + std::to_string(nx_out) + ".bin";
+    // Gradient interpolation!!!
 
     // float p[CUBIC][CUBIC];
 
@@ -502,6 +487,28 @@ void Inversion::export_final_model()
     //     }
     // }
 
+
+
+
+
+
+}
+
+void Inversion::export_convergence()
+{
+
+
+
+}
+
+void Inversion::export_final_model()
+{
+    model_file = output_folder + "final_model_" + std::to_string(int(freqs[freqId])) + "Hz_" + std::to_string(nz_out) + "x" + std::to_string(nx_out) + ".bin";
+
+
+
+
+
     export_binary_float(model_file, vp, nPoints_out);
 }
 
@@ -509,8 +516,10 @@ void Inversion::refresh_memory()
 {
     delete[] Vp;
     delete[] aux_vp;
+    delete[] partial;
     delete[] obs_data;
     delete[] cal_data;
+    delete[] gradient;
     delete[] seismogram;
     delete[] seismic_data;
 

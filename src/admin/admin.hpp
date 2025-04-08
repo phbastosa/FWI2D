@@ -14,7 +14,7 @@
 # include <algorithm>
 
 # define KW 4    // number of kaiser weights
-# define KS 5.0f // kaiser weights space: controls smoothness
+# define KS 3.5f // kaiser weights space: control smoothness
 
 struct Point 
 {
