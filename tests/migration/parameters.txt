@@ -31,7 +31,7 @@ boundary_samples = 100
 
 abc_damping = 0.0015 
 
-rbc_ratio = 50                      
+rbc_ratio = 150                      
 rbc_varVp = 1000                      
 
 modeling_output_folder = ../inputs/data/migration_test_

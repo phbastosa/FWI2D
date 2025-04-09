@@ -52,14 +52,14 @@ case "$1" in
 
     echo -e "Compiling stand-alone executables!\n"
 
-    # echo -e "../bin/\033[31mmodeling.exe\033[m" 
-    # nvcc $admin $geometry $modeling $modeling_main $flags -o ../bin/modeling.exe
+    echo -e "../bin/\033[31mmodeling.exe\033[m" 
+    nvcc $admin $geometry $modeling $modeling_main $flags -o ../bin/modeling.exe
 
     echo -e "../bin/\033[31minversion.exe\033[m" 
     nvcc $admin $geometry $modeling $inversion $inversion_main $flags -o ../bin/inversion.exe
 
-    # echo -e "../bin/\033[31mmigration.exe\033[m"
-    # nvcc $admin $geometry $modeling $migration $migration_main $flags -o ../bin/migration.exe
+    echo -e "../bin/\033[31mmigration.exe\033[m"
+    nvcc $admin $geometry $modeling $migration $migration_main $flags -o ../bin/migration.exe
 
     exit 0
 ;;

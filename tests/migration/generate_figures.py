@@ -32,7 +32,7 @@ fig, ax = plt.subplots(figsize = (8, 6))
 im = ax.imshow(model, aspect = "auto", cmap = "jet")
 
 cbar = plt.colorbar(im)
-cbar.set_label("Velocity P [m/s]")
+cbar.set_label("Velocity P [m/s]", fontsize = 15)
 
 ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "ob", label = "receivers")
 ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "or", label = "sources")
@@ -112,6 +112,9 @@ ax.set_ylabel("Depth [m]", fontsize = 15)
 ax.set_xlabel("Distance [m]", fontsize = 15)
 
 ax.legend(loc = "lower right", fontsize = 15)
+
+cbar = plt.colorbar(im)
+cbar.set_label("Amplitude", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("migration_test_image.png", dpi = 200)
