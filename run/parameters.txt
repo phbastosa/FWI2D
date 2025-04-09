@@ -2,34 +2,34 @@
 # Model parameters ------------------------------------------
 #------------------------------------------------------------
 
-x_samples = 131      
-z_samples = 131
+x_samples = 2721      
+z_samples = 561
 
-x_spacing = 10.0
-z_spacing = 10.0
+x_spacing = 6.25
+z_spacing = 6.25
 
-model_file = ../inputs/models/Vp_131x131_10ppX_shot_1.bin 
+model_file = ../inputs/models/marmousi2_561x2721_6.25m.bin 
 
 #------------------------------------------------------------
 # Geometry --------------------------------------------------
 #------------------------------------------------------------
 
-SPS = ../inputs/geometry/rbc_SPS.txt 
-RPS = ../inputs/geometry/rbc_RPS.txt 
-XPS = ../inputs/geometry/rbc_XPS.txt 
+SPS = ../inputs/geometry/marmousi2_SPS.txt 
+RPS = ../inputs/geometry/marmousi2_RPS.txt 
+XPS = ../inputs/geometry/marmousi2_XPS.txt 
 
 #------------------------------------------------------------
 # Modeling parameters ---------------------------------------
 #------------------------------------------------------------
 
-time_samples = 201
-time_spacing = 2e-3
+time_samples = 8001
+time_spacing = 1e-3
 
-max_frequency = 20.0
+max_frequency = 30.0
 
-boundary_samples = 0
+boundary_samples = 100
 
-rbc_ratio = 50                      
+rbc_ratio = 250                      
 rbc_varVp = 1000                      
 
 abc_damping = 0.0015 
@@ -40,13 +40,9 @@ modeling_output_folder = ../outputs/data/
 # Inversion parameters --------------------------------------
 #------------------------------------------------------------
 
-inversion_input_folder = ../inputs/data/ 
 
-multi_frequency = [15, 20, 25, 30] 
 
-max_iteration = 1 
 
-inversion_output_folder = ../outputs/models/
 
 #------------------------------------------------------------
 # Migration parameters --------------------------------------
