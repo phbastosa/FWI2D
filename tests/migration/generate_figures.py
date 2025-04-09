@@ -27,7 +27,7 @@ xlab = np.array(xloc*dx, dtype = int)
 zloc = np.linspace(0, nz-1, 6)
 zlab = np.array(zloc*dz, dtype = int)
 
-fig, ax = plt.subplots(figsize = (10, 6))
+fig, ax = plt.subplots(figsize = (8, 6))
 
 im = ax.imshow(model, aspect = "auto", cmap = "jet")
 
@@ -41,8 +41,8 @@ ax.set_xticks(xloc)
 ax.set_yticks(zloc)
 ax.set_xticklabels(xlab)    
 ax.set_yticklabels(zlab)    
-ax.set_ylabel("Depth [km]", fontsize = 15)
-ax.set_xlabel("Distance [km]", fontsize = 15)
+ax.set_ylabel("Depth [m]", fontsize = 15)
+ax.set_xlabel("Distance [m]", fontsize = 15)
 
 ax.legend(loc = "lower right", fontsize = 15)
 
@@ -97,7 +97,7 @@ xloc = np.linspace(0, nx-1, 5)
 
 xlab = np.linspace(0, (nx-1)*dx, 5, dtype = int)
 
-fig, ax = plt.subplots(figsize = (10, 6))
+fig, ax = plt.subplots(figsize = (8, 6))
 
 im = ax.imshow(image, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
 
@@ -108,8 +108,8 @@ ax.set_xticks(xloc)
 ax.set_yticks(zloc)
 ax.set_xticklabels(xlab)    
 ax.set_yticklabels(zlab)    
-ax.set_ylabel("Depth [km]", fontsize = 15)
-ax.set_xlabel("Distance [km]", fontsize = 15)
+ax.set_ylabel("Depth [m]", fontsize = 15)
+ax.set_xlabel("Distance [m]", fontsize = 15)
 
 ax.legend(loc = "lower right", fontsize = 15)
 

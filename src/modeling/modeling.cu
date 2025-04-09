@@ -375,6 +375,9 @@ void Modeling::forward_solver()
 
         std::swap(d_P, d_Pold);
     }
+
+    cudaMemcpy(Vp, d_P, matsize*sizeof(float), cudaMemcpyDeviceToHost);
+    export_binary_float("pressure_10pp.bin", Vp, matsize);
 }
 
 __global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, float * kw, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt, bool ABC)
@@ -511,7 +514,9 @@ void Modeling::set_random_boundary()
         float r = std::uniform_real_distribution<float>(0.1f*rbc_ratio, 0.9f*rbc_ratio)(RBC_RNG);
         float A = std::uniform_real_distribution<float>(-rbc_varVp, rbc_varVp)(RBC_RNG);
 
-        random_boundary_gp<<<nBlocks,nThreads>>>(d_Vp, d_X, d_Z, nxx, nzz, x_max, z_max, xb, zb, A, xc, zc, r, vmax, vmin, rbc_varVp);
+        float factor = rand() % 2 == 0 ? -1.0f : 1.0f;
+
+        random_boundary_gp<<<nBlocks,nThreads>>>(d_Vp, d_X, d_Z, nxx, nzz, x_max, z_max, xb, zb, factor, A, xc, zc, r, vmax, vmin, rbc_varVp);
     }
 }
 
@@ -579,7 +584,7 @@ __global__ void random_boundary_bg(float * Vp, int nxx, int nzz, int nb, float v
     }
 }
 
-__global__ void random_boundary_gp(float * Vp, float * X, float * Z, int nxx, int nzz, float x_max, float z_max, float xb, float zb, float A, float xc, float zc, float r, float vmax, float vmin, float varVp)
+__global__ void random_boundary_gp(float * Vp, float * X, float * Z, int nxx, int nzz, float x_max, float z_max, float xb, float zb, float factor, float A, float xc, float zc, float r, float vmax, float vmin, float varVp)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
