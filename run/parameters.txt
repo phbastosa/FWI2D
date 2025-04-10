@@ -22,10 +22,10 @@ XPS = ../inputs/geometry/marmousi2_XPS.txt
 # Modeling parameters ---------------------------------------
 #------------------------------------------------------------
 
-time_samples = 8001
-time_spacing = 1e-3
+time_samples = 10001
+time_spacing = 5e-4
 
-max_frequency = 30.0
+max_frequency = 50.0
 
 boundary_samples = 100
 
