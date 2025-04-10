@@ -188,7 +188,7 @@ void Inversion::set_observed_data()
     obs_data = new float[nt_out*geometry->nTraces]();
     cal_data = new float[nt_out*geometry->nTraces]();
 
-    std::string input_file = input_folder + "seismogram_nt" + std::to_string(nt_out) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(freqs[freqId])) + "Hz_" + std::to_string(int(1e3f*dt_out)) + "ms.bin";
+    std::string input_file = input_folder + "seismogram_nt" + std::to_string(nt_out) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(freqs[freqId])) + "Hz_" + std::to_string(int(1e6f*dt_out)) + "us.bin";
 
     import_binary_float(input_file, obs_data, nt_out*geometry->nTraces); 
 

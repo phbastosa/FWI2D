@@ -358,7 +358,7 @@ void Modeling::set_seismogram()
 
 void Modeling::export_output_data()
 {
-    std::string data_file = data_folder + "seismogram_nt" + std::to_string(nt) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(int(1e3f*dt)) + "ms.bin";
+    std::string data_file = data_folder + "seismogram_nt" + std::to_string(nt) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(int(1e6f*dt)) + "us.bin";
     export_binary_float(data_file, seismic_data, nt*geometry->nTraces);    
 }
 

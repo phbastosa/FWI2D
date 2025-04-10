@@ -15,7 +15,7 @@ void Migration::set_parameters()
     input_folder = catch_parameter("migration_input_folder", parameters);
     output_folder = catch_parameter("migration_output_folder", parameters);
 
-    std::string input_file = input_folder + "seismogram_nt" + std::to_string(nt) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(int(1e3f*dt)) + "ms.bin";
+    std::string input_file = input_folder + "seismogram_nt" + std::to_string(nt) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(int(1e6f*dt)) + "us.bin";
 
     import_binary_float(input_file, seismic_data, geometry->nTraces*nt); 
 
