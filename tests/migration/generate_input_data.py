@@ -16,7 +16,7 @@ fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
 
 data_folder = pyf.catch_parameter(parameters, "migration_input_folder")
 
-template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e3*dt)}ms.bin"
+template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e6*dt)}us.bin"
 
 data_file = data_folder + template
 

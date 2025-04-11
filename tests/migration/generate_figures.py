@@ -34,8 +34,8 @@ im = ax.imshow(model, aspect = "auto", cmap = "jet")
 cbar = plt.colorbar(im)
 cbar.set_label("Velocity P [m/s]", fontsize = 15)
 
-ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "ob", label = "receivers")
-ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "or", label = "sources")
+ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "or", label = "receivers")
+ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "og", label = "sources")
 
 ax.set_xticks(xloc)
 ax.set_yticks(zloc)
@@ -58,7 +58,7 @@ nTraces = np.sum(XPS[:,2] - XPS[:,1])
 
 data_folder = pyf.catch_parameter(parameters, "migration_input_folder") 
 
-template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e3*dt)}ms.bin"
+template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e6*dt)}us.bin"
 
 seismic = pyf.read_binary_matrix(nt, nTraces, data_folder + template)
 
@@ -89,9 +89,9 @@ plt.show()
 
 image_folder = pyf.catch_parameter(parameters, "migration_output_folder")
 
-image = pyf.read_binary_matrix(nz, nx, image_folder + f"RTM_section_{nz}x{nx}_{int(fmax)}Hz_{int(dx)}m.bin")
+image = pyf.read_binary_matrix(nz, nx, image_folder + f"RTM_section_{nz}x{nx}_{int(fmax)}Hz.bin")
 
-scale = 50*np.std(image)
+scale = 10*np.std(image)
 
 xloc = np.linspace(0, nx-1, 5)
 
@@ -101,8 +101,8 @@ fig, ax = plt.subplots(figsize = (8, 6))
 
 im = ax.imshow(image, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
 
-ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "ob", label = "receivers")
-ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "or", label = "sources")
+ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "or", label = "receivers")
+ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "og", label = "sources")
 
 ax.set_xticks(xloc)
 ax.set_yticks(zloc)

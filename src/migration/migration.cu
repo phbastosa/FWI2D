@@ -133,7 +133,7 @@ void Migration::image_enhancing()
 
 void Migration::export_seismic()
 {
-    std::string output_file = output_folder + "RTM_section_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(fmax)) + "Hz_" + std::to_string((int)(dz)) + "m.bin";
+    std::string output_file = output_folder + "RTM_section_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(fmax)) + "Hz.bin";
     export_binary_float(output_file, image, nPoints);
 }
 

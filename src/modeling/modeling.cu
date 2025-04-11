@@ -507,8 +507,11 @@ void Modeling::set_random_boundary()
     {
         float xc = target[p].x;
         float zc = target[p].z;
-        
-        float r = std::uniform_real_distribution<float>(0.1f*rbc_ratio, 0.9f*rbc_ratio)(RBC_RNG);
+
+        int xId = (int)(xc / dx);
+        int zId = (int)(zc / dz);
+
+        float r = std::uniform_real_distribution<float>(0.2f*rbc_ratio, rbc_ratio)(RBC_RNG);
         float A = std::uniform_real_distribution<float>(-rbc_varVp, rbc_varVp)(RBC_RNG);
 
         float factor = rand() % 2 == 0 ? -1.0f : 1.0f;
@@ -521,13 +524,7 @@ __device__ float get_random_value(float velocity, float function, float paramete
 {
     curandState state;
     curand_init(clock64(), index, 0, &state);
-    
-    float value = velocity + function*parameter*curand_normal(&state);
-
-    value = value > velocity + varVp ? velocity + varVp : value;
-    value = value < velocity - varVp ? velocity - varVp : value;            
-
-    return value;
+    return velocity + function*parameter*curand_normal(&state);
 }
 
 __global__ void random_boundary_bg(float * Vp, int nxx, int nzz, int nb, float varVp)
