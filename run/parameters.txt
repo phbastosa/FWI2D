@@ -27,9 +27,9 @@ time_spacing = 5e-4
 
 max_frequency = 50.0
 
-boundary_samples = 100
+boundary_samples = 96
 
-rbc_ratio = 250                      
+rbc_ratio = 150                      
 rbc_varVp = 1000                      
 
 abc_damping = 0.0015 
@@ -48,4 +48,7 @@ modeling_output_folder = ../outputs/data/
 # Migration parameters --------------------------------------
 #------------------------------------------------------------
 
+migration_input_folder = ../inputs/data/
+
+migration_output_folder = ../outputs/seismic/
 

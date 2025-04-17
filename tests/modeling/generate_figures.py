@@ -46,7 +46,6 @@ ax.set_xlabel("Distance [km]", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("modeling_test_model.png", dpi = 200)
-plt.show()
 
 
 fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
@@ -55,7 +54,7 @@ nTraces = np.sum(XPS[:,2] - XPS[:,1])
 
 data_folder = pyf.catch_parameter(parameters, "modeling_output_folder") 
 
-template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e3*dt)}ms.bin"
+template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e6*dt)}us.bin"
 
 seismic = pyf.read_binary_matrix(nt, nTraces, data_folder + template)
 
@@ -80,4 +79,3 @@ ax.set_xlabel("Traces", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("modeling_test_data.png", dpi = 200)
-plt.show()

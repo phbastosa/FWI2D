@@ -48,7 +48,6 @@ ax.legend(loc = "lower right", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("migration_test_model.png", dpi = 200)
-plt.show()
 
 #-----------------------------------------------------------------------------------
 
@@ -83,7 +82,6 @@ ax.set_xlabel("Traces", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("migration_test_data.png", dpi = 200)
-plt.show()
 
 #-----------------------------------------------------------------------------------
 
@@ -118,4 +116,3 @@ cbar.set_label("Amplitude", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("migration_test_image.png", dpi = 200)
-plt.show()

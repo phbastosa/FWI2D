@@ -62,5 +62,4 @@ ax[1].set_xlabel("Distance [km]", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("inversion_test_models.png", dpi = 200)
-plt.show()
 
