@@ -2,6 +2,8 @@
 
 void Migration::set_parameters()
 {    
+    title = "\033[34mReverse Time Migration\033[0;0m";
+
     set_main_parameters();
 
     set_wavelet();
@@ -21,7 +23,6 @@ void Migration::set_parameters()
 
     image = new float[nPoints]();
     sumPs = new float[nPoints]();
-
     partial = new float[matsize]();
 
     cudaMalloc((void**)&(d_Pr), matsize*sizeof(float));
@@ -36,11 +37,6 @@ void Migration::set_parameters()
 void Migration::show_information()
 {
     auto clear = system("clear");
-
-    std::string title = "\033[34mReverse Time Migration\033[0;0m";
-
-    int width = 80;
-    int padding = (width - title.length() + 8) / 2;
 
     std::string line(width, '-');
 

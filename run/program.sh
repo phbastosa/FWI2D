@@ -106,31 +106,12 @@ case "$1" in
     parameters=$prefix/parameters.txt
 
     python3 -B $prefix/generate_models.py
-    python3 -B $prefix/generate_geometry.py
+#    python3 -B $prefix/generate_geometry.py
  
     true_model="model_file = ../inputs/models/inversion_test_true_model_201x501_10m.bin"
     init_model="model_file = ../inputs/models/inversion_test_init_model_201x501_10m.bin"
 
-    freqs=$(grep '^multi_frequency' $parameters)
-    array=$(echo "$freqs" | sed -E 's/.*=\s*\[(.*)\]/\1/' | tr -d ' ')
-
-    IFS=',' read -r -a freq_array <<< $array
-
-    len=${#freq_array[@]}
-
     ./../bin/modeling.exe $parameters
-
-    for (( i=1; i<$len; i++ )); do
-
-        fo=${freq_array[$((i-1))]}
-        fi=${freq_array[$i]}
-
-        sed -i "s|max_frequency = $fo.0|max_frequency = $fi.0|g" "$parameters"
-
-        ./../bin/modeling.exe $parameters
-    done
-
-    sed -i "s|max_frequency = $fi.0|max_frequency = 25.0|g" "$parameters"
 
     sed -i "s|$true_model|$init_model|g" "$parameters"
 
