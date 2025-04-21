@@ -98,16 +98,11 @@ void Inversion::check_convergence()
 {
     float square_difference = 0.0f;
 
-    export_binary_float("obs_data.bin", obs_data, nt*geometry->nTraces);
-    export_binary_float("cal_data.bin", seismic_data, nt*geometry->nTraces);
-
     for (int index = 0; index < nt*geometry->nTraces; index++)
     {
         seismic_data[index] = obs_data[index] - seismic_data[index];
         square_difference += seismic_data[index]*seismic_data[index];
     }
-
-    export_binary_float("res_data.bin", seismic_data, nt*geometry->nTraces);
 
     residuo.push_back(sqrtf(square_difference));
 
@@ -157,6 +152,7 @@ void Inversion::backward_propagation()
     show_information();
 
     initialization();
+    
     set_seismic_source();
 
     cudaMemset(d_Pr, 0.0f, matsize*sizeof(float));
@@ -182,7 +178,7 @@ void Inversion::set_seismic_source()
 
 void Inversion::optimization()
 {
-    stage_info = "Optimizing problem with title method ...";
+    stage_info = "Optimizing problem with ";
 
     cudaMemcpy(partial, d_gradient, matsize*sizeof(float), cudaMemcpyDeviceToHost);
     reduce_boundary(partial, gradient);
