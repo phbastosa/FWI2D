@@ -25,14 +25,14 @@ XPS = ../inputs/geometry/inversion_test_XPS.txt
 time_samples = 4001
 time_spacing = 1e-3
 
-max_frequency = 25.0
+max_frequency = 30.0
 
 boundary_samples = 100
 
 rbc_ratio = 50                      
 rbc_varVp = 1000                      
 
-abc_damping = 0.0005 
+abc_damping = 0.0015 
 
 modeling_output_folder = ../inputs/data/inversion_test_
 
@@ -41,8 +41,6 @@ modeling_output_folder = ../inputs/data/inversion_test_
 #------------------------------------------------------------
 
 inversion_input_folder = ../inputs/data/inversion_test_ 
-
-multi_frequency = [25, 30] 
 
 max_iteration = 1 
 

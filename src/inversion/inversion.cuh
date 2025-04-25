@@ -3,8 +3,6 @@
 
 # include "../modeling/modeling.cuh"
 
-# define CUBIC 4
-
 class Inversion : public Modeling
 {
 private:
@@ -12,33 +10,17 @@ private:
     int iteration;
     int max_iteration;
 
-    int nx_out;
-    int nz_out;
-    int nt_out;
-    int nb_out;
+    float * sumPs = nullptr;
+    float * partial = nullptr;    
+    float * gradient = nullptr;
 
-    float dx_out;
-    float dz_out;
-    float dt_out;
-
-    int nPoints_out;
-
-    float * vp = nullptr;
-    float * aux_vp = nullptr;
-
-    float * freqs = nullptr;
     float * obs_data = nullptr;
-    float * cal_data = nullptr;
 
     float * d_Pr = nullptr;
     float * d_Prold = nullptr;
     float * d_sumPs = nullptr;
     float * d_gradient = nullptr;
     float * d_Vp_clean = nullptr;
-
-    float * sumPs = nullptr;
-    float * partial = nullptr;    
-    float * gradient = nullptr;
 
     std::string stage_info;
     
@@ -52,9 +34,6 @@ private:
     void forward_propagation();
     void backward_propagation();
 
-    void set_data_interpolation();
-    void set_model_interpolation();
-
 public:
 
     int freqId;
@@ -64,7 +43,6 @@ public:
 
     void set_parameters();
     void set_observed_data();
-    void set_model_dimension();
     void show_information();
     void check_convergence();
     void set_calculated_data();
@@ -74,8 +52,6 @@ public:
 
     void export_final_model();
     void export_convergence();
-
-    void refresh_memory();
 };
 
 __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt);

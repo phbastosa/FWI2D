@@ -1,5 +1,7 @@
 import numpy as np
 
+from scipy.ndimage import gaussian_filter
+
 x_max = 5e3
 z_max = 2e3
 
@@ -8,17 +10,13 @@ dh = 10.0
 nx = int((x_max / dh) + 1)
 nz = int((z_max / dh) + 1)
 
-true_model = np.zeros((nz, nx)) + 1500
-init_model = np.zeros((nz, nx)) + 1500
+model = np.zeros((nz, nx)) + 1500
 
-dv = 10.0
-wb = 500.0
-vi = 1550.0
+dv = 50.0
+vi = 2000.0
 
 for i in range(nz):
-    if i > wb/dh:
-        true_model[i] = vi + (i*dh - wb)*dv/dh 
-        init_model[i] = vi + (i*dh - wb)*dv/dh
+    model[i] = vi + i*dv/dh 
 
 radius = 350
 
@@ -29,11 +27,20 @@ circle_centers = np.array([[1250, 1750],
 
 x, z = np.meshgrid(np.arange(nx)*dh, np.arange(nz)*dh)
 
+anomaly = np.zeros_like(model)
+
 for k, dv in enumerate(velocity_variation):
     
     distance = np.sqrt((x - circle_centers[k,1])**2 + (z - circle_centers[k,0])**2)
 
-    true_model[distance <= radius] += dv
+    anomaly[distance <= radius] += dv
+
+true_model = model + anomaly
 
 true_model.flatten("F").astype(np.float32, order = "F").tofile(f"../inputs/models/inversion_test_true_model_{nz}x{nx}_{dh:.0f}m.bin")
+
+anomaly = gaussian_filter(anomaly, 5.0)
+
+init_model = model + anomaly
+
 init_model.flatten("F").astype(np.float32, order = "F").tofile(f"../inputs/models/inversion_test_init_model_{nz}x{nx}_{dh:.0f}m.bin")

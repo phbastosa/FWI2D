@@ -7,35 +7,29 @@ int main(int argc, char **argv)
     inversion->parameters = std::string(argv[1]);
 
     inversion->set_parameters();
+    inversion->set_observed_data();
 
     auto ti = std::chrono::system_clock::now();
 
-    for (int freqId = 0; freqId < 1; freqId++)
+    while (true)
     {
-        inversion->freqId = freqId;
+        inversion->set_calculated_data();
 
-        inversion->set_model_dimension();
-        inversion->set_observed_data();
+        inversion->check_convergence();
 
-        while (true)
-        {
-            inversion->set_calculated_data();
+        if (inversion->converged) break;
 
-            inversion->check_convergence();
-
-            if (inversion->converged) break;
-
-            // inversion->compute_gradient();
+        inversion->compute_gradient();
            
-            // inversion->optimization();
+        inversion->optimization();
 
-        //     inversion->update_model();
-        }
-        
-        // inversion->export_convergence();
-        inversion->export_final_model();
-        // inversion->refresh_memory();
+        //inversion->update_model();
     }
+        
+    //     // inversion->export_convergence();
+    //     inversion->export_final_model();
+    //     // inversion->refresh_memory();
+    // }
 
     auto tf = std::chrono::system_clock::now();
 
