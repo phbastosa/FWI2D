@@ -511,8 +511,8 @@ void Modeling::set_random_boundary()
         int xId = (int)(xc / dx);
         int zId = (int)(zc / dz);
 
-        float r = std::uniform_real_distribution<float>(0.2f*rbc_ratio, rbc_ratio)(RBC_RNG);
-        float A = std::uniform_real_distribution<float>(-rbc_varVp, rbc_varVp)(RBC_RNG);
+        float r = std::uniform_real_distribution<float>(0.5f*rbc_ratio, rbc_ratio)(RBC_RNG);
+        float A = std::uniform_real_distribution<float>(0.5f*rbc_varVp, rbc_varVp)(RBC_RNG);
 
         float factor = rand() % 2 == 0 ? -1.0f : 1.0f;
 
