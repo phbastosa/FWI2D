@@ -129,6 +129,9 @@ case "$1" in
     prefix=../tests/migration
     parameters=$prefix/parameters.txt
 
+    mig_boundary=50
+    mod_boundary=100
+
     python3 -B $prefix/generate_models.py
     python3 -B $prefix/generate_geometry.py
 
@@ -136,7 +139,11 @@ case "$1" in
 
     python3 -B $prefix/generate_input_data.py $parameters
 
+    sed -i "s|boundary_samples = $mod_boundary|boundary_samples = $mig_boundary|g" "$parameters"
+
     ./../bin/migration.exe $parameters
+
+    sed -i "s|boundary_samples = $mig_boundary|boundary_samples = $mod_boundary|g" "$parameters"
 
     python3 -B $prefix/generate_figures.py $parameters
 

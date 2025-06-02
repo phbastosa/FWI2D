@@ -25,14 +25,14 @@ XPS = ../inputs/geometry/migration_test_XPS.txt
 time_samples = 6001
 time_spacing = 1e-3
 
-max_frequency = 10.0
+max_frequency = 30.0
 
-boundary_samples = 86
+boundary_samples = 100
 
-abc_damping = 0.0004 
+abc_damping = 0.0015 
 
-rbc_ratio = 215                     
-rbc_varVp = 1000                      
+rbc_ratio = 45                     
+rbc_varVp = 2000                      
 
 modeling_output_folder = ../inputs/data/migration_test_
 
