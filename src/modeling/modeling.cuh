@@ -6,18 +6,18 @@
 
 # include "../geometry/geometry.hpp"
 
+# define WIDTH 80
+# define NTHREADS 256
+
 class Modeling
 {
 protected:
 
     bool ABC;
-
-    float fmax, bd;
-    float dh, dt;
-
+    float abc_length;
+    float abc_factor;
     float vmax, vmin;
-    float rbc_ratio;
-    float rbc_varVp;
+    float dh, dt, fmax;
 
     std::string title;
     int tlag, nThreads;

@@ -26,12 +26,8 @@ time_spacing = 1e-3
 
 max_frequency = 30.0
 
-boundary_samples = 100
-
-rbc_ratio = 50                      
-rbc_varVp = 1000                      
-
-abc_damping = 0.0015 
+abc_length = 1000
+abc_factor = 0.0015 
 
 modeling_output_folder = ../outputs/data/modeling_test_
 
