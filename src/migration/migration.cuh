@@ -5,7 +5,11 @@
 
 class Migration : public Modeling
 {
-protected:
+private:
+
+    float rbc_ratio;
+    float rbc_varVp;
+    float rbc_length; 
 
     float * d_Pr = nullptr;
     float * d_Prold = nullptr;
@@ -32,6 +36,6 @@ public:
     void export_seismic();
 };
 
-__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt);
+__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dt);
 
 # endif

@@ -6,13 +6,17 @@ void Migration::set_parameters()
 
     set_main_parameters();
 
-    set_wavelet();
-    set_geometry();
-    set_properties();
-    set_seismograms();
-    set_coordinates();
+    rbc_ratio = std::stof(catch_parameter("mig_rbc_ratio", parameters)); 
+    rbc_varVp = std::stof(catch_parameter("mig_rbc_varVp", parameters)); 
+    rbc_length = std::stof(catch_parameter("mig_rbc_length", parameters));
 
-    ABC = false;
+    nb = (int)(rbc_length / dh) + 1;
+
+    set_wavelet();
+    set_geometry();    
+    set_seismograms();
+    set_properties();
+    set_coordinates();
 
     input_folder = catch_parameter("migration_input_folder", parameters);
     output_folder = catch_parameter("migration_output_folder", parameters);
@@ -38,11 +42,13 @@ void Migration::show_information()
 {
     auto clear = system("clear");
 
-    std::string line(width, '-');
+    padding = (WIDTH - title.length() + 8) / 2;
 
-    std::cout << line << '\n';
+    std::string line(WIDTH, '-');
+
+    std::cout << line << "\n";
     std::cout << std::string(padding, ' ') << title << '\n';
-    std::cout << line << '\n';
+    std::cout << line << "\n\n";
 
     std::cout << "Model dimensions: (z = " << (nz - 1)*dh << 
                                   ", x = " << (nx - 1)*dh <<") m\n\n";
@@ -52,9 +58,9 @@ void Migration::show_information()
     std::cout << "Current shot position: (z = " << geometry->zsrc[geometry->sInd[srcId]] << 
                                        ", x = " << geometry->xsrc[geometry->sInd[srcId]] << ") m\n\n";
 
-    std::cout << "-------------------------------------------------------------------------------\n";
+    std::cout << line << "\n";
     std::cout << stage_info << std::endl;
-    std::cout << "-------------------------------------------------------------------------------\n";                                                                          
+    std::cout << line << "\n";                                                                          
 }
 
 void Migration::forward_propagation()
@@ -63,7 +69,7 @@ void Migration::forward_propagation()
 
     show_information();
 
-    set_random_boundary();
+    set_random_boundary(rbc_ratio, rbc_varVp);
     
     initialization();
     forward_solver();
@@ -83,7 +89,7 @@ void Migration::backward_propagation()
 
     for (int tId = 0; tId < nt; tId++)
     {
-        RTM<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_image, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dh, dh, dt);
+        RTM<<<nBlocks, NTHREADS>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_image, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dh, dt);
     
         std::swap(d_P, d_Pold);
         std::swap(d_Pr, d_Prold);
@@ -133,7 +139,7 @@ void Migration::export_seismic()
     export_binary_float(output_file, image, nPoints);
 }
 
-__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dh, float dh, float dt)
+__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dh, float dt)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -144,8 +150,7 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
     {
         for (int rId = 0; rId < spread; rId++)
         {
-            Pr[(rIdz[rId] + 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
-            Pr[(rIdz[rId] - 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
+            Pr[rIdz[rId] + rIdx[rId]*nzz] += seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
         }
     }    
 

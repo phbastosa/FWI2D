@@ -14,19 +14,21 @@ class Modeling
 protected:
 
     bool ABC;
+
     float abc_length;
     float abc_factor;
     float vmax, vmin;
     float dh, dt, fmax;
 
     std::string title;
-    int tlag, nThreads;
-    int width, padding;
+    
+    int padding;
+    
     int sBlocks, nBlocks;
 
     int nxx, nzz, matsize;
     int nt, nx, nz, nb, nPoints;
-    int sIdx, sIdz;
+    int sIdx, sIdz, tlag;
 
     int * rIdx = nullptr;
     int * rIdz = nullptr;
@@ -59,12 +61,13 @@ protected:
     void set_properties();
     void set_coordinates();
     void set_seismograms();    
-    void set_cerjan_dampers();
+    void set_abc_dampers();
     void set_main_parameters();
-    void set_random_boundary();
 
     void expand_boundary(float * input, float * output);
     void reduce_boundary(float * input, float * output);
+
+    void set_random_boundary(float ratio, float varVp);
 
 public:
 

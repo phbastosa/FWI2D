@@ -37,6 +37,7 @@ modeling_output_folder = ../outputs/data/
 
 inv_rbc_ratio = 200
 inv_rbc_varVp = 1000
+inv_rbc_length = 500
 
 inversion_input_folder = ../inputs/data/
 inversion_output_folder = ../outputs/seismic/
@@ -47,6 +48,7 @@ inversion_output_folder = ../outputs/seismic/
 
 mig_rbc_ratio = 200
 mig_rbc_varVp = 1000
+mig_rbc_length = 500
 
 migration_input_folder = ../inputs/data/
 migration_output_folder = ../outputs/seismic/

@@ -13,8 +13,7 @@ XPS = np.loadtxt(pyf.catch_parameter(parameters,"XPS"), delimiter = ",", dtype =
 nx = int(pyf.catch_parameter(parameters, "x_samples"))
 nz = int(pyf.catch_parameter(parameters, "z_samples")) 
 
-dx = float(pyf.catch_parameter(parameters, "x_spacing"))
-dz = float(pyf.catch_parameter(parameters, "z_spacing"))
+dh = float(pyf.catch_parameter(parameters, "model_spacing"))
 
 nt = int(pyf.catch_parameter(parameters, "time_samples"))
 dt = float(pyf.catch_parameter(parameters, "time_spacing"))
@@ -22,10 +21,10 @@ dt = float(pyf.catch_parameter(parameters, "time_spacing"))
 model = pyf.read_binary_matrix(nz, nx, pyf.catch_parameter(parameters, "model_file"))
 
 xloc = np.linspace(0, nx-1, 11)
-xlab = np.array(xloc*dx, dtype = int)
+xlab = np.array(xloc*dh, dtype = int)
 
 zloc = np.linspace(0, nz-1, 6)
-zlab = np.array(zloc*dz, dtype = int)
+zlab = np.array(zloc*dh, dtype = int)
 
 fig, ax = plt.subplots(figsize = (8, 6))
 
@@ -34,8 +33,8 @@ im = ax.imshow(model, aspect = "auto", cmap = "jet")
 cbar = plt.colorbar(im)
 cbar.set_label("Velocity P [m/s]", fontsize = 15)
 
-ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "or", label = "receivers")
-ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "og", label = "sources")
+ax.plot(RPS[:,0]/dh, RPS[:,1]/dh, "or", label = "receivers")
+ax.plot(SPS[:,0]/dh, SPS[:,1]/dh, "og", label = "sources")
 
 ax.set_xticks(xloc)
 ax.set_yticks(zloc)
@@ -93,14 +92,14 @@ scale = 10*np.std(image)
 
 xloc = np.linspace(0, nx-1, 5)
 
-xlab = np.linspace(0, (nx-1)*dx, 5, dtype = int)
+xlab = np.linspace(0, (nx-1)*dh, 5, dtype = int)
 
 fig, ax = plt.subplots(figsize = (8, 6))
 
 im = ax.imshow(image, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
 
-ax.plot(RPS[:,0]/dx, RPS[:,1]/dz, "or", label = "receivers")
-ax.plot(SPS[:,0]/dx, SPS[:,1]/dz, "og", label = "sources")
+ax.plot(RPS[:,0]/dh, RPS[:,1]/dh, "or", label = "receivers")
+ax.plot(SPS[:,0]/dh, SPS[:,1]/dh, "og", label = "sources")
 
 ax.set_xticks(xloc)
 ax.set_yticks(zloc)
