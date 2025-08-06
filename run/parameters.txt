@@ -5,8 +5,7 @@
 x_samples = 2721      
 z_samples = 561
 
-x_spacing = 6.25
-z_spacing = 6.25
+model_spacing = 6.25
 
 model_file = ../inputs/models/marmousi2_561x2721_6.25m.bin 
 

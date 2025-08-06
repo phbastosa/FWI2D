@@ -44,8 +44,8 @@ void Migration::show_information()
     std::cout << std::string(padding, ' ') << title << '\n';
     std::cout << line << '\n';
 
-    std::cout << "Model dimensions: (z = " << (nz - 1)*dz << 
-                                  ", x = " << (nx - 1)*dx <<") m\n\n";
+    std::cout << "Model dimensions: (z = " << (nz - 1)*dh << 
+                                  ", x = " << (nx - 1)*dh <<") m\n\n";
 
     std::cout << "Running shot " << srcId + 1 << " of " << geometry->nrel << " in total\n\n";
 
@@ -83,7 +83,7 @@ void Migration::backward_propagation()
 
     for (int tId = 0; tId < nt; tId++)
     {
-        RTM<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_image, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dx, dz, dt);
+        RTM<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_image, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dh, dh, dt);
     
         std::swap(d_P, d_Pold);
         std::swap(d_Pr, d_Prold);
@@ -119,7 +119,7 @@ void Migration::image_enhancing()
 
         if((i > 0) && (i < nz-1) && (j > 0) && (j < nx-1)) 
         {
-            float d2I_dz2 = (image[(i-1) + j*nz] - 2.0f*image[i + j*nz] + image[(i+1) + j*nz]) / (dz * dz);
+            float d2I_dz2 = (image[(i-1) + j*nz] - 2.0f*image[i + j*nz] + image[(i+1) + j*nz]) / (dh * dh);
 
             image[index] = d2I_dz2;
         }
@@ -133,7 +133,7 @@ void Migration::export_seismic()
     export_binary_float(output_file, image, nPoints);
 }
 
-__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt)
+__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dh, float dh, float dt)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -144,8 +144,8 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
     {
         for (int rId = 0; rId < spread; rId++)
         {
-            Pr[(rIdz[rId] + 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dx*dz); 
-            Pr[(rIdz[rId] - 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dx*dz); 
+            Pr[(rIdz[rId] + 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
+            Pr[(rIdz[rId] - 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
         }
     }    
 
@@ -155,25 +155,25 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
                       +   128.0f*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
                       -  1008.0f*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
                       +  8064.0f*(Psold[i + (j+1)*nzz] + Psold[i + (j-1)*nzz])
-                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dx*dx);
+                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2Ps_dz2 = (- 9.0f*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
                       +   128.0f*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
                       -  1008.0f*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
                       +  8064.0f*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
-                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dz*dz);
+                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2Pr_dx2 = (- 9.0f*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
                       +   128.0f*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
                       -  1008.0f*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
                       +  8064.0f*(Pr[i + (j+1)*nzz] + Pr[i + (j-1)*nzz])
-                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dx*dx);
+                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2Pr_dz2 = (- 9.0f*(Pr[(i-4) + j*nzz] + Pr[(i+4) + j*nzz])
                       +   128.0f*(Pr[(i-3) + j*nzz] + Pr[(i+3) + j*nzz])
                       -  1008.0f*(Pr[(i-2) + j*nzz] + Pr[(i+2) + j*nzz])
                       +  8064.0f*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
-                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dz*dz);
+                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
 
         Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];
         

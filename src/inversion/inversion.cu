@@ -70,8 +70,8 @@ void Inversion::show_information()
     std::cout << std::string(padding, ' ') << title << '\n';
     std::cout << line << '\n';
     
-    std::cout << "Model dimensions: (z = " << (nz - 1)*dz << 
-                                  ", x = " << (nx - 1)*dx <<") m\n\n";
+    std::cout << "Model dimensions: (z = " << (nz - 1)*dh << 
+                                  ", x = " << (nx - 1)*dh <<") m\n\n";
 
     std::cout << "Running shot " << srcId + 1 << " of " << geometry->nrel << " in total\n\n";
 
@@ -160,7 +160,7 @@ void Inversion::backward_propagation()
 
     for (int tId = 0; tId < nt; tId++)
     {
-        FWI<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_gradient, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dx, dz, dt);
+        FWI<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_gradient, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dh, dh, dt);
     
         std::swap(d_P, d_Pold);
         std::swap(d_Pr, d_Prold);
@@ -222,11 +222,11 @@ void Inversion::update_model()
     //         float z = i*dz_out;    
     //         float x = j*dx_out;    
 
-    //         float x0 = floorf(x/dx)*dx;
-    //         float z0 = floorf(z/dz)*dz;
+    //         float x0 = floorf(x/dh)*dh;
+    //         float z0 = floorf(z/dh)*dh;
 
-    //         float x1 = floorf(x/dx)*dx + dx;
-    //         float z1 = floorf(z/dz)*dz + dz;        
+    //         float x1 = floorf(x/dh)*dh + dh;
+    //         float z1 = floorf(z/dh)*dh + dh;        
 
     //         float pdx = (x - x0) / (x1 - x0);  
     //         float pdz = (z - z0) / (z1 - z0); 
@@ -235,8 +235,8 @@ void Inversion::update_model()
     //         {
     //             for (int pIdx = 0; pIdx < CUBIC; pIdx++)
     //             {
-    //                 int pz = (int)(floorf(z0/dz)) + pIdz - 1;
-    //                 int px = (int)(floorf(x0/dx)) + pIdx - 1;    
+    //                 int pz = (int)(floorf(z0/dh)) + pIdz - 1;
+    //                 int px = (int)(floorf(x0/dh)) + pIdx - 1;    
                     
     //                 if (pz < 0) pz = 0;
     //                 if (px < 0) px = 0;
@@ -295,7 +295,7 @@ void Inversion::export_final_model()
 //    export_binary_float(model_file, model, nPoints);
 }
 
-__global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt)
+__global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dh, float dh, float dt)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -306,8 +306,8 @@ __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float 
     {
         for (int rId = 0; rId < spread; rId++)
         {
-            Pr[(rIdz[rId] + 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dx*dz); 
-            Pr[(rIdz[rId] - 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dx*dz); 
+            Pr[(rIdz[rId] + 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
+            Pr[(rIdz[rId] - 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
         }
     }    
 
@@ -317,25 +317,25 @@ __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float 
                       +   128.0f*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
                       -  1008.0f*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
                       +  8064.0f*(Psold[i + (j+1)*nzz] + Psold[i + (j-1)*nzz])
-                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dx*dx);
+                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2Ps_dz2 = (- 9.0f*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
                       +   128.0f*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
                       -  1008.0f*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
                       +  8064.0f*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
-                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dz*dz);
+                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2Pr_dx2 = (- 9.0f*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
                       +   128.0f*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
                       -  1008.0f*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
                       +  8064.0f*(Pr[i + (j+1)*nzz] + Pr[i + (j-1)*nzz])
-                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dx*dx);
+                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2Pr_dz2 = (- 9.0f*(Pr[(i-4) + j*nzz] + Pr[(i+4) + j*nzz])
                       +   128.0f*(Pr[(i-3) + j*nzz] + Pr[(i+3) + j*nzz])
                       -  1008.0f*(Pr[(i-2) + j*nzz] + Pr[(i+2) + j*nzz])
                       +  8064.0f*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
-                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dz*dz);
+                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
 
         Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];
         

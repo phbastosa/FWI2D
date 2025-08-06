@@ -18,8 +18,7 @@ void Modeling::set_main_parameters()
     nx = std::stoi(catch_parameter("x_samples", parameters));        
     nz = std::stoi(catch_parameter("z_samples", parameters));        
 
-    dx = std::stof(catch_parameter("x_spacing", parameters));
-    dz = std::stof(catch_parameter("z_spacing", parameters));
+    dh = std::stof(catch_parameter("model_spacing", parameters));
 
     nt = std::stoi(catch_parameter("time_samples", parameters));
     dt = std::stof(catch_parameter("time_spacing", parameters));
@@ -128,12 +127,12 @@ void Modeling::set_coordinates()
     float * h_Z = new float[nzz]();   
     # pragma omp parallel for 
     for (int i = 0; i < nzz; i++) 
-        h_Z[i] = (float)(i)*dz;
+        h_Z[i] = (float)(i)*dh;
 
     float * h_X = new float[nxx]();   
     # pragma omp parallel for 
     for (int j = 0; j < nxx; j++) 
-        h_X[j] = (float)(j)*dx;
+        h_X[j] = (float)(j)*dh;
     
     cudaMalloc((void**)&(d_X), nxx*sizeof(float));
     cudaMemcpy(d_X, h_X, nxx*sizeof(float), cudaMemcpyHostToDevice);
@@ -267,7 +266,7 @@ void Modeling::show_information()
     std::cout << std::string(padding, ' ') << title << '\n';
     std::cout << line << '\n';
     
-    std::cout << "Model dimensions: (z = " << (nz - 1)*dz << ", x = " << (nx - 1)*dx <<") m\n\n";
+    std::cout << "Model dimensions: (z = " << (nz - 1)*dh << ", x = " << (nx - 1)*dh <<") m\n\n";
 
     std::cout << "Running shot " << srcId + 1 << " of " << geometry->nrel << " in total\n\n";
 
@@ -277,15 +276,15 @@ void Modeling::show_information()
 
 void Modeling::initialization()
 {
-    sIdx = (int)(geometry->xsrc[geometry->sInd[srcId]] / dx) + nb;
-    sIdz = (int)(geometry->zsrc[geometry->sInd[srcId]] / dz) + nb;
+    sIdx = (int)(geometry->xsrc[geometry->sInd[srcId]] / dh) + nb;
+    sIdz = (int)(geometry->zsrc[geometry->sInd[srcId]] / dh) + nb;
 
     int spreadId = 0;
 
     for (int recId = geometry->iRec[srcId]; recId < geometry->fRec[srcId]; recId++)
     {
-        rIdx[spreadId] = (int)(geometry->xrec[recId] / dx) + nb;
-        rIdz[spreadId] = (int)(geometry->zrec[recId] / dz) + nb;
+        rIdx[spreadId] = (int)(geometry->xrec[recId] / dh) + nb;
+        rIdz[spreadId] = (int)(geometry->zrec[recId] / dh) + nb;
 
         ++spreadId;
     }
@@ -316,7 +315,7 @@ void Modeling::forward_solver()
 
     for (int tId = 0; tId < tlag + nt; tId++)
     {
-        compute_pressure<<<nBlocks, nThreads>>>(d_Vp, d_P, d_Pold, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, dx, dz, dt, ABC);
+        compute_pressure<<<nBlocks, nThreads>>>(d_Vp, d_P, d_Pold, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, dh, dt, ABC);
         
         compute_seismogram<<<sBlocks, nThreads>>>(d_P, d_rIdx, d_rIdz, d_seismogram, geometry->spread, tId, tlag, nt, nzz);     
 
@@ -324,7 +323,7 @@ void Modeling::forward_solver()
     }
 }
 
-__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt, bool ABC)
+__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dh, float dt, bool ABC)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -332,7 +331,7 @@ __global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_
     int j = (int)(index / nzz);
 
     if ((index == 0) && (tId < nt))
-        P[sIdz + sIdx*nzz] += d_wavelet[tId] / (dx*dz); 
+        P[sIdz + sIdx*nzz] += d_wavelet[tId] / (dh*dh); 
 
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
@@ -340,13 +339,13 @@ __global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_
                      +   128.0f*(P[i + (j-3)*nzz] + P[i + (j+3)*nzz])
                      -  1008.0f*(P[i + (j-2)*nzz] + P[i + (j+2)*nzz])
                      +  8064.0f*(P[i + (j+1)*nzz] + P[i + (j-1)*nzz])
-                     - 14350.0f*(P[i + j*nzz]))/(5040.0f*dx*dx);
+                     - 14350.0f*(P[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2P_dz2 = (- 9.0f*(P[(i-4) + j*nzz] + P[(i+4) + j*nzz])
                      +   128.0f*(P[(i-3) + j*nzz] + P[(i+3) + j*nzz])
                      -  1008.0f*(P[(i-2) + j*nzz] + P[(i+2) + j*nzz])
                      +  8064.0f*(P[(i-1) + j*nzz] + P[(i+1) + j*nzz])
-                     - 14350.0f*(P[i + j*nzz]))/(5040.0f*dz*dz);
+                     - 14350.0f*(P[i + j*nzz]))/(5040.0f*dh*dh);
 
         Pold[index] = dt*dt*Vp[index]*Vp[index]*(d2P_dx2 + d2P_dz2) + 2.0f*P[index] - Pold[index];
         
@@ -422,11 +421,11 @@ std::mt19937 RBC_RNG(RBC());
 
 void Modeling::set_random_boundary()
 {
-    float x_max = (nxx-1)*dx;
-    float z_max = (nzz-1)*dz;
+    float x_max = (nxx-1)*dh;
+    float z_max = (nzz-1)*dh;
 
-    float xb = nb*dx;
-    float zb = nb*dz;
+    float xb = nb*dh;
+    float zb = nb*dh;
 
     random_boundary_bg<<<nBlocks,nThreads>>>(d_Vp, nxx, nzz, nb, rbc_varVp);
 
@@ -445,8 +444,8 @@ void Modeling::set_random_boundary()
         float xc = target[p].x;
         float zc = target[p].z;
 
-        int xId = (int)(xc / dx);
-        int zId = (int)(zc / dz);
+        int xId = (int)(xc / dh);
+        int zId = (int)(zc / dh);
 
         float r = std::uniform_real_distribution<float>(0.5f*rbc_ratio, rbc_ratio)(RBC_RNG);
         float A = std::uniform_real_distribution<float>(0.5f*rbc_varVp, rbc_varVp)(RBC_RNG);

@@ -5,8 +5,7 @@
 x_samples = 1001      
 z_samples = 501
 
-x_spacing = 10.0
-z_spacing = 10.0
+model_spacing = 10.0
 
 model_file = ../inputs/models/modeling_test_vp_501x1001_10m.bin 
 

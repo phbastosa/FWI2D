@@ -13,7 +13,7 @@ protected:
     bool ABC;
 
     float fmax, bd;
-    float dx, dz, dt;
+    float dh, dt;
 
     float vmax, vmin;
     float rbc_ratio;
@@ -82,7 +82,7 @@ public:
     void export_output_data();
 };
 
-__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dx, float dz, float dt, bool ABC);
+__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dh, float dt, bool ABC);
 __global__ void compute_seismogram(float * P, int * d_rIdx, int * d_rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz);
 __device__ float get_boundary_damper(float * d1D, float * d2D, int i, int j, int nxx, int nzz, int nb);
 
