@@ -23,7 +23,7 @@ protected:
     std::string title;
     
     int padding;
-    
+
     int sBlocks, nBlocks;
 
     int nxx, nzz, matsize;
@@ -67,7 +67,7 @@ protected:
     void expand_boundary(float * input, float * output);
     void reduce_boundary(float * input, float * output);
 
-    void set_random_boundary(float ratio, float varVp);
+    void set_random_boundary(float * vp, float ratio, float varVp);
 
 public:
 

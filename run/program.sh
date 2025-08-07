@@ -55,8 +55,8 @@ case "$1" in
     echo -e "../bin/\033[31mmodeling.exe\033[m" 
     nvcc $admin $geometry $modeling $modeling_main $flags -o ../bin/modeling.exe
 
-    # echo -e "../bin/\033[31minversion.exe\033[m" 
-    # nvcc $admin $geometry $modeling $inversion $inversion_main $flags -o ../bin/inversion.exe
+    echo -e "../bin/\033[31minversion.exe\033[m" 
+    nvcc $admin $geometry $modeling $inversion $inversion_main $flags -o ../bin/inversion.exe
 
     echo -e "../bin/\033[31mmigration.exe\033[m"
     nvcc $admin $geometry $modeling $migration $migration_main $flags -o ../bin/migration.exe
@@ -119,7 +119,7 @@ case "$1" in
 
     sed -i "s|$init_model|$true_model|g" "$parameters"
 
-    # python3 -B $prefix/generate_figures.py $parameters
+    python3 -B $prefix/generate_figures.py $parameters
 
     exit 0
 ;;

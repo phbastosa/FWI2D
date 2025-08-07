@@ -7,11 +7,39 @@ void Inversion::set_parameters()
     set_main_parameters();
     
     set_wavelet();
-    set_geometry();
-    set_properties();
+    set_geometry();    
     set_seismograms();
+    set_abc_dampers();
+    set_properties();
     set_coordinates();
-    set_cerjan_dampers();
+
+    rbc_ratio = std::stof(catch_parameter("inv_rbc_ratio", parameters)); 
+    rbc_varVp = std::stof(catch_parameter("inv_rbc_varVp", parameters)); 
+    rbc_length = std::stof(catch_parameter("inv_rbc_length", parameters));
+
+    abc_nb = nb;
+    abc_nxx = nxx;
+    abc_nzz = nzz;
+    abc_matsize = matsize;
+
+    rbc_nb = (int)(rbc_length / dh) + 1;
+
+    rbc_nxx = nx + 2*rbc_nb;
+    rbc_nzz = nz + 2*rbc_nb;
+    rbc_matsize = rbc_nxx*rbc_nzz;
+
+    float * vp = new float[nPoints]();
+    
+    h_rbc_Vp = new float[rbc_matsize]();
+
+    reduce_boundary(Vp, vp);
+
+    nb = rbc_nb;
+    nxx = rbc_nxx;
+    nzz = rbc_nzz;
+    matsize = rbc_matsize;
+
+    expand_boundary(vp, h_rbc_Vp);
 
     input_folder = catch_parameter("inversion_input_folder", parameters);
     output_folder = catch_parameter("inversion_output_folder", parameters);
@@ -21,18 +49,25 @@ void Inversion::set_parameters()
     iteration = 0;
 
     sumPs = new float[nPoints]();
-    partial = new float[matsize]();
     gradient = new float[nPoints]();
 
-    cudaMalloc((void**)&(d_Pr), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_Prold), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_sumPs), matsize*sizeof(float));
+    partial = new float[rbc_matsize]();
 
-    cudaMalloc((void**)&(d_Vp_clean), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_gradient), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pr), rbc_matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Ps), rbc_matsize*sizeof(float));
+    
+    cudaMalloc((void**)&(d_Psold), rbc_matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Prold), rbc_matsize*sizeof(float));
+    
+    cudaMalloc((void**)&(d_sumPs), rbc_matsize*sizeof(float));
 
-    cudaMemcpy(d_Vp, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_Vp_clean, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&(d_gradient), rbc_matsize*sizeof(float));
+
+    cudaMalloc((void**)&(d_rbc_Vp), rbc_matsize*sizeof(float));
+
+    cudaMemcpy(d_rbc_Vp, h_rbc_Vp, rbc_matsize*sizeof(float), cudaMemcpyHostToDevice);
+
+    delete[] vp;
 }
 
 void Inversion::set_observed_data()
@@ -46,6 +81,15 @@ void Inversion::set_observed_data()
 
 void Inversion::set_calculated_data()
 {
+    ABC = true;
+
+    nb = abc_nb;
+    nxx = abc_nxx;
+    nzz = abc_nzz;
+    matsize = abc_matsize;
+
+    nBlocks = (int)((matsize + NTHREADS - 1) / NTHREADS);
+
     stage_info = "Calculating seismograms to compute residuo...";
 
     for (srcId = 0; srcId < geometry->nrel; srcId++)
@@ -56,19 +100,19 @@ void Inversion::set_calculated_data()
         forward_solver();
         set_seismogram();
     }
-    
-    cudaMemset(d_gradient, 0.0f, matsize*sizeof(float));
 }
 
 void Inversion::show_information()
 {
     auto clear = system("clear");
 
-    std::string line(width, '-');
+    padding = (WIDTH - title.length() + 8) / 2;
+
+    std::string line(WIDTH, '-');
 
     std::cout << line << '\n';
     std::cout << std::string(padding, ' ') << title << '\n';
-    std::cout << line << '\n';
+    std::cout << line << "\n\n";
     
     std::cout << "Model dimensions: (z = " << (nz - 1)*dh << 
                                   ", x = " << (nx - 1)*dh <<") m\n\n";
@@ -121,16 +165,21 @@ void Inversion::check_convergence()
 void Inversion::compute_gradient()
 {
     ABC = false;
+
+    nb = rbc_nb;
+    nxx = rbc_nxx;
+    nzz = rbc_nzz;
+    matsize = rbc_matsize;
+
+    nBlocks = (int)((matsize + NTHREADS - 1) / NTHREADS);
+
+    cudaMemset(d_gradient, 0.0f, rbc_matsize*sizeof(float));
     
     for (srcId = 0; srcId < geometry->nrel; srcId++)
     {
         forward_propagation();
         backward_propagation();
     }
-    
-    cudaMemcpy(d_Vp, d_Vp_clean, matsize*sizeof(float), cudaMemcpyDeviceToDevice);
-
-    ABC = true;
 }
 
 void Inversion::forward_propagation()
@@ -139,10 +188,23 @@ void Inversion::forward_propagation()
 
     show_information();
 
-    set_random_boundary();
-    
     initialization();
-    forward_solver();
+    rbc_forward_solver();
+}
+
+void Inversion::rbc_forward_solver()
+{
+    cudaMemset(d_Ps, 0.0f, rbc_matsize*sizeof(float));
+    cudaMemset(d_Psold, 0.0f, rbc_matsize*sizeof(float));
+
+    set_random_boundary(d_rbc_Vp, rbc_ratio, rbc_varVp);
+
+    for (int tId = 0; tId < tlag + nt; tId++)
+    {
+        compute_pressure<<<nBlocks,NTHREADS>>>(d_rbc_Vp, d_Ps, d_Psold, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, dh, dt, ABC);
+
+        std::swap(d_Ps, d_Psold);
+    }
 }
 
 void Inversion::backward_propagation()
@@ -155,16 +217,16 @@ void Inversion::backward_propagation()
     
     set_seismic_source();
 
-    cudaMemset(d_Pr, 0.0f, matsize*sizeof(float));
-    cudaMemset(d_Prold, 0.0f, matsize*sizeof(float));
+    cudaMemset(d_Pr, 0.0f, rbc_matsize*sizeof(float));
+    cudaMemset(d_Prold, 0.0f, rbc_matsize*sizeof(float));
 
-    for (int tId = 0; tId < nt; tId++)
+    for (int tId = 0; tId < nt + tlag; tId++)
     {
-        FWI<<<nBlocks, nThreads>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_seismogram, d_gradient, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, nxx, nzz, nt, dh, dh, dt);
+        FWI<<<nBlocks,NTHREADS>>>(d_Ps, d_Psold, d_Pr, d_Prold, d_rbc_Vp, d_seismogram, d_gradient, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, tlag, nxx, nzz, nt, dh, dt);
     
-        std::swap(d_P, d_Pold);
+        std::swap(d_Ps, d_Psold);
         std::swap(d_Pr, d_Prold);
-    }    
+    }
 }
 
 void Inversion::set_seismic_source()
@@ -180,10 +242,10 @@ void Inversion::optimization()
 {
     stage_info = "Optimizing problem with ";
 
-    cudaMemcpy(partial, d_gradient, matsize*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(partial, d_gradient, rbc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
     reduce_boundary(partial, gradient);
 
-    cudaMemcpy(partial, d_sumPs, matsize*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(partial, d_sumPs, rbc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
     reduce_boundary(partial, sumPs);
 
     # pragma omp parallel for
@@ -200,79 +262,6 @@ void Inversion::optimization()
 void Inversion::update_model()
 {
     stage_info = "Updating model ...";
-
-    // Gradient interpolation!!!
-
-    // float p[CUBIC][CUBIC];
-
-    // float * aux_vp = new float[nPoints_out]();
-
-    // int skipx = (int)((nx_out - 1)/(nx - 1));
-    // int skipz = (int)((nz_out - 1)/(nz - 1));
-
-    // reduce_boundary(Vp, vp);
-
-    // for (int index = 0; index < nPoints_out; index++)
-    // {
-    //     int i = (int)(index % nz_out);
-    //     int j = (int)(index / nz_out);   
-
-    //     if ((i >= skipz) && (i < nz_out-skipz) && (j >= skipx) && (j < nx_out-skipx))
-    //     {
-    //         float z = i*dz_out;    
-    //         float x = j*dx_out;    
-
-    //         float x0 = floorf(x/dh)*dh;
-    //         float z0 = floorf(z/dh)*dh;
-
-    //         float x1 = floorf(x/dh)*dh + dh;
-    //         float z1 = floorf(z/dh)*dh + dh;        
-
-    //         float pdx = (x - x0) / (x1 - x0);  
-    //         float pdz = (z - z0) / (z1 - z0); 
-
-    //         for (int pIdz = 0; pIdz < CUBIC; pIdz++)
-    //         {
-    //             for (int pIdx = 0; pIdx < CUBIC; pIdx++)
-    //             {
-    //                 int pz = (int)(floorf(z0/dh)) + pIdz - 1;
-    //                 int px = (int)(floorf(x0/dh)) + pIdx - 1;    
-                    
-    //                 if (pz < 0) pz = 0;
-    //                 if (px < 0) px = 0;
-                    
-    //                 if (pz > nz) pz = nz;
-    //                 if (px > nx) px = nx;
-                    
-    //                 p[pIdx][pIdz] = vp[pz + px*nz];
-    //             }    
-    //         }
-
-    //         vp_out[i + j*nz_out] = cubic2d(p, pdx, pdz); 
-    //     }
-    // }
-    
-    // for (int i = 0; i < skipz; i++)
-    // {
-    //     for (int j = skipx; j < nx_out-skipx; j++)
-    //     {
-    //         vp_out[i + j*nz_out] = vp_out[skipz + j*nz_out];
-    //         vp_out[nz_out-i-1 + j*nz_out] = vp_out[nz_out-skipz-1 + j*nz_out];
-    //     }
-    // }
-
-    // for (int i = 0; i < nz_out; i++)
-    // {
-    //     for (int j = 0; j < skipx; j++)
-    //     {
-    //         vp_out[i + j*nz_out] = vp_out[i + skipx*nz_out];
-    //         vp_out[i + (nx_out-j-1)*nz_out] = vp_out[i + (nx_out-skipx-1)*nz_out];
-    //     }
-    // }
-
-
-
-
 
 
 }
@@ -295,7 +284,7 @@ void Inversion::export_final_model()
 //    export_binary_float(model_file, model, nPoints);
 }
 
-__global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dh, float dh, float dt)
+__global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int tlag, int nxx, int nzz, int nt, float dh, float dt)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -303,27 +292,30 @@ __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float 
     int j = (int)(index / nzz);
 
     if ((index == 0) && (tId < nt))
-    {
         for (int rId = 0; rId < spread; rId++)
-        {
-            Pr[(rIdz[rId] + 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
-            Pr[(rIdz[rId] - 1) + rIdx[rId]*nzz] += 0.5f*seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
-        }
-    }    
+            Pr[rIdz[rId] + rIdx[rId]*nzz] += seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
 
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
-        float d2Ps_dx2 = (- 9.0f*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
-                      +   128.0f*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
-                      -  1008.0f*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
-                      +  8064.0f*(Psold[i + (j+1)*nzz] + Psold[i + (j-1)*nzz])
-                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
+        float d2Ps_dx2 = 0.0f;
+        float d2Ps_dz2 = 0.0f;
 
-        float d2Ps_dz2 = (- 9.0f*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
-                      +   128.0f*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
-                      -  1008.0f*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
-                      +  8064.0f*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
-                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
+        if (tId > tlag)
+        {
+            d2Ps_dx2 = (- 9.0f*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
+                    +   128.0f*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
+                    -  1008.0f*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
+                    +  8064.0f*(Psold[i + (j+1)*nzz] + Psold[i + (j-1)*nzz])
+                    - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
+
+            d2Ps_dz2 = (- 9.0f*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
+                    +   128.0f*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
+                    -  1008.0f*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
+                    +  8064.0f*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
+                    - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
+        
+            Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];    
+        }
 
         float d2Pr_dx2 = (- 9.0f*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
                       +   128.0f*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
@@ -337,8 +329,6 @@ __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float 
                       +  8064.0f*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
                       - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
 
-        Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];
-        
         Prold[index] = dt*dt*Vp[index]*Vp[index]*(d2Pr_dx2 + d2Pr_dz2) + 2.0f*Pr[index] - Prold[index];
 
         gradient[index] += dt*Pr[index]*(d2Ps_dx2 + d2Ps_dz2)*Vp[index]*Vp[index];   

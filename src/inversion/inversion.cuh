@@ -10,17 +10,28 @@ private:
     int iteration;
     int max_iteration;
 
+    float rbc_ratio;
+    float rbc_varVp;
+    float rbc_length; 
+
+    int abc_nxx, abc_nzz, abc_nb, abc_matsize;
+    int rbc_nxx, rbc_nzz, rbc_nb, rbc_matsize;
+
     float * sumPs = nullptr;
     float * partial = nullptr;    
     float * gradient = nullptr;
 
+    float * h_rbc_Vp = nullptr;
+    float * d_rbc_Vp = nullptr;
+
     float * obs_data = nullptr;
 
+    float * d_Ps = nullptr;    
     float * d_Pr = nullptr;
+    float * d_Psold = nullptr;
     float * d_Prold = nullptr;
     float * d_sumPs = nullptr;
     float * d_gradient = nullptr;
-    float * d_Vp_clean = nullptr;
 
     std::string stage_info;
     
@@ -30,6 +41,7 @@ private:
     
     std::vector<float> residuo;
     
+    void rbc_forward_solver();
     void set_seismic_source();
     void forward_propagation();
     void backward_propagation();
@@ -54,6 +66,6 @@ public:
     void export_convergence();
 };
 
-__global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int nxx, int nzz, int nt, float dx, float dz, float dt);
+__global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int tlag, int nxx, int nzz, int nt, float dh, float dt);
 
 # endif
