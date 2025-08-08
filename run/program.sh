@@ -105,13 +105,13 @@ case "$1" in
     prefix=../tests/inversion
     parameters=$prefix/parameters.txt
 
-    # python3 -B $prefix/generate_models.py
-    # python3 -B $prefix/generate_geometry.py
+    python3 -B $prefix/generate_models.py
+    python3 -B $prefix/generate_geometry.py
  
     true_model="model_file = ../inputs/models/inversion_test_true_model_201x501_10m.bin"
     init_model="model_file = ../inputs/models/inversion_test_init_model_201x501_10m.bin"
 
-    # ./../bin/modeling.exe $parameters
+    ./../bin/modeling.exe $parameters
 
     sed -i "s|$true_model|$init_model|g" "$parameters"
 
@@ -155,6 +155,7 @@ case "$1" in
     rm ../outputs/data/*.bin
     rm ../outputs/models/*.bin
     rm ../outputs/seismic/*.bin
+    rm ../outputs/residuo/*.txt
 
 ;;
 

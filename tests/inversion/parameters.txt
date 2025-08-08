@@ -7,7 +7,7 @@ z_samples = 201
 
 model_spacing = 10.0
 
-model_file = ../inputs/models/inversion_test_init_model_201x501_10m.bin 
+model_file = ../inputs/models/inversion_test_true_model_201x501_10m.bin 
 
 #------------------------------------------------------------
 # Geometry --------------------------------------------------
@@ -35,7 +35,7 @@ modeling_output_folder = ../inputs/data/inversion_test_
 # Inversion parameters --------------------------------------
 #------------------------------------------------------------
 
-alpha = 1e-6
+alpha = 5e-7
 beta1 = 0.9
 beta2 = 0.999
 
