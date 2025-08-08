@@ -10,12 +10,20 @@ private:
     int iteration;
     int max_iteration;
 
+    float alpha;
+    float beta1;
+    float beta2;
+
     float rbc_ratio;
     float rbc_varVp;
     float rbc_length; 
 
     int abc_nxx, abc_nzz, abc_nb, abc_matsize;
     int rbc_nxx, rbc_nzz, rbc_nb, rbc_matsize;
+
+    float * vp = nullptr;
+    float * A1 = nullptr;
+    float * A2 = nullptr;
 
     float * sumPs = nullptr;
     float * partial = nullptr;    
@@ -38,6 +46,7 @@ private:
     std::string model_file;
     std::string input_folder;
     std::string output_folder; 
+    std::string residuo_folder; 
     
     std::vector<float> residuo;
     

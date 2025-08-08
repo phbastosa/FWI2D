@@ -11,25 +11,23 @@ int main(int argc, char **argv)
 
     auto ti = std::chrono::system_clock::now();
 
-    // while (true)
-    // {
+    while (true)
+    {
         inversion->set_calculated_data();
 
         inversion->check_convergence();
 
-        // if (inversion->converged) break;
+        if (inversion->converged) break;
 
         inversion->compute_gradient();
            
         inversion->optimization();
 
-        //inversion->update_model();
-    // }
+        inversion->update_model();
+    }
         
-    //     // inversion->export_convergence();
-    //     inversion->export_final_model();
-    //     // inversion->refresh_memory();
-    // }
+    inversion->export_convergence();
+    inversion->export_final_model();
 
     auto tf = std::chrono::system_clock::now();
 

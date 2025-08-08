@@ -28,7 +28,7 @@ void Inversion::set_parameters()
     rbc_nzz = nz + 2*rbc_nb;
     rbc_matsize = rbc_nxx*rbc_nzz;
 
-    float * vp = new float[nPoints]();
+    vp = new float[nPoints]();
     
     h_rbc_Vp = new float[rbc_matsize]();
 
@@ -43,10 +43,18 @@ void Inversion::set_parameters()
 
     input_folder = catch_parameter("inversion_input_folder", parameters);
     output_folder = catch_parameter("inversion_output_folder", parameters);
+    residuo_folder = catch_parameter("inversion_residuo_folder", parameters);
 
     max_iteration = std::stoi(catch_parameter("max_iteration", parameters));
 
+    alpha = std::stof(catch_parameter("alpha", parameters));
+    beta1 = std::stof(catch_parameter("beta1", parameters));
+    beta2 = std::stof(catch_parameter("beta2", parameters));
+
     iteration = 0;
+
+    A1 = new float[nPoints]();
+    A2 = new float[nPoints]();
 
     sumPs = new float[nPoints]();
     gradient = new float[nPoints]();
@@ -66,8 +74,6 @@ void Inversion::set_parameters()
     cudaMalloc((void**)&(d_rbc_Vp), rbc_matsize*sizeof(float));
 
     cudaMemcpy(d_rbc_Vp, h_rbc_Vp, rbc_matsize*sizeof(float), cudaMemcpyHostToDevice);
-
-    delete[] vp;
 }
 
 void Inversion::set_observed_data()
@@ -126,15 +132,18 @@ void Inversion::show_information()
     std::cout << stage_info << "\n";
     std::cout << line << "\n\n";
 
-    if (iteration == max_iteration)
+    if (!ABC)
     {
-        std::cout << "Checking final residuals\n\n";
-    }
-    else
-    {    
-        std::cout << "Computing iteration " << iteration + 1 << " of " << max_iteration << "\n\n";
+        if (iteration >= max_iteration)
+        {
+            std::cout << "Checking final residuals\n\n";
+        }
+        else
+        {    
+            std::cout << "Computing iteration " << iteration + 1 << " of " << max_iteration << "\n\n";
 
-        if (iteration > 0) std::cout << "Previous residuals: " << residuo.back() << "\n";   
+            if (iteration > 0) std::cout << "Previous residuals: " << residuo.back() << "\n";   
+        }
     }
 }
 
@@ -174,7 +183,7 @@ void Inversion::compute_gradient()
     nBlocks = (int)((matsize + NTHREADS - 1) / NTHREADS);
 
     cudaMemset(d_gradient, 0.0f, rbc_matsize*sizeof(float));
-    
+
     for (srcId = 0; srcId < geometry->nrel; srcId++)
     {
         forward_propagation();
@@ -250,38 +259,66 @@ void Inversion::optimization()
 
     # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
+    {
+        int i = (int)(index % nz);
+        int j = (int)(index / nz);
+
         gradient[index] /= sumPs[index];
 
-    export_binary_float("gradient_" + std::to_string(nz) + ".bin" , gradient, nPoints);
+        A1[index] = beta1*A1[index] + (1.0f - beta1)*gradient[index];
+        A2[index] = beta2*A2[index] + (1.0f - beta2)*gradient[index]*gradient[index];
+        
+        float A1_hat = A1[index] / (1.0f - beta1);
+        float A2_hat = A2[index] / (1.0f - beta2);     
 
+        float m = 1.0f / Vp[(i + abc_nb) + (j + abc_nb)*abc_nzz];
 
-
-
+        vp[index] = 1.0f /(m - alpha*A1_hat/(sqrtf(A2_hat) + 1e-8f));
+    }
 }
 
 void Inversion::update_model()
 {
     stage_info = "Updating model ...";
 
+    expand_boundary(vp, h_rbc_Vp);
+    cudaMemcpy(d_rbc_Vp, h_rbc_Vp, rbc_matsize*sizeof(float), cudaMemcpyHostToDevice);
 
+    nb = abc_nb;
+    nxx = abc_nxx;
+    nzz = abc_nzz;
+    matsize = abc_matsize;
+
+    expand_boundary(vp, Vp);
+    cudaMemcpy(d_Vp, Vp, abc_matsize*sizeof(float), cudaMemcpyHostToDevice);
 }
 
 void Inversion::export_convergence()
 {
+    std::string residuo_path = residuo_folder + "convergence_" + std::to_string(iteration) + "_iterations.txt"; 
 
+    std::ofstream resFile(residuo_path, std::ios::out);
+    
+    for (int r = 0; r < residuo.size(); r++) 
+        resFile << residuo[r] << "\n";
 
+    resFile.close();
 
+    std::cout << "Text file \033[34m" << residuo_path << "\033[0;0m was successfully written." << std::endl;
 }
 
 void Inversion::export_final_model()
 {
-    model_file = output_folder + "final_model_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
+    model_file = output_folder + "model_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
 
+    nb = rbc_nb;
+    nxx = rbc_nxx;
+    nzz = rbc_nzz;
+    matsize = rbc_matsize;
 
-
-
-
-//    export_binary_float(model_file, model, nPoints);
+    cudaMemcpy(partial, d_rbc_Vp, matsize*sizeof(float), cudaMemcpyDeviceToHost);    
+    reduce_boundary(partial, vp);
+    export_binary_float(model_file, vp, nPoints);
 }
 
 __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int tlag, int nxx, int nzz, int nt, float dh, float dt)
@@ -297,26 +334,18 @@ __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float 
 
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
-        float d2Ps_dx2 = 0.0f;
-        float d2Ps_dz2 = 0.0f;
+        float d2Ps_dx2 = (- 9.0f*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
+                      +   128.0f*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
+                      -  1008.0f*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
+                      +  8064.0f*(Psold[i + (j+1)*nzz] + Psold[i + (j-1)*nzz])
+                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
 
-        if (tId > tlag)
-        {
-            d2Ps_dx2 = (- 9.0f*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
-                    +   128.0f*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
-                    -  1008.0f*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
-                    +  8064.0f*(Psold[i + (j+1)*nzz] + Psold[i + (j-1)*nzz])
-                    - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
-
-            d2Ps_dz2 = (- 9.0f*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
-                    +   128.0f*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
-                    -  1008.0f*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
-                    +  8064.0f*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
-                    - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
+        float d2Ps_dz2 = (- 9.0f*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
+                      +   128.0f*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
+                      -  1008.0f*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
+                      +  8064.0f*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
+                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
         
-            Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];    
-        }
-
         float d2Pr_dx2 = (- 9.0f*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
                       +   128.0f*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
                       -  1008.0f*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
@@ -328,6 +357,8 @@ __global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float 
                       -  1008.0f*(Pr[(i-2) + j*nzz] + Pr[(i+2) + j*nzz])
                       +  8064.0f*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
                       - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
+        
+        Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];    
 
         Prold[index] = dt*dt*Vp[index]*Vp[index]*(d2Pr_dx2 + d2Pr_dz2) + 2.0f*Pr[index] - Prold[index];
 
