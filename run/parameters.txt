@@ -2,20 +2,20 @@
 # Model parameters ------------------------------------------
 #------------------------------------------------------------
 
-x_samples = 2721      
-z_samples = 561
+x_samples = 3401      
+z_samples = 601
 
-model_spacing = 6.25
+model_spacing = 5.0
 
-model_file = ../inputs/models/marmousi2_561x2721_6.25m.bin 
+model_file = ../inputs/models/model_vp_601x3401_5m.bin 
 
 #------------------------------------------------------------
 # Geometry --------------------------------------------------
 #------------------------------------------------------------
 
-SPS = ../inputs/geometry/marmousi2_SPS.txt 
-RPS = ../inputs/geometry/marmousi2_RPS.txt 
-XPS = ../inputs/geometry/marmousi2_XPS.txt 
+SPS = ../inputs/geometry/BP2D_streamer_SPS.txt 
+RPS = ../inputs/geometry/BP2D_streamer_RPS.txt 
+XPS = ../inputs/geometry/BP2D_streamer_XPS.txt 
 
 #------------------------------------------------------------
 # Modeling parameters ---------------------------------------
@@ -26,8 +26,8 @@ time_spacing = 5e-4
 
 max_frequency = 50.0
 
-abc_length = 500
-abc_factor = 0.0015 
+abc_length = 1000
+abc_factor = 0.001 
 
 modeling_output_folder = ../outputs/data/
 
@@ -46,7 +46,7 @@ inversion_output_folder = ../outputs/seismic/
 # Migration parameters --------------------------------------
 #------------------------------------------------------------
 
-mig_rbc_ratio = 200
+mig_rbc_ratio = 100
 mig_rbc_varVp = 1000
 mig_rbc_length = 500
 
