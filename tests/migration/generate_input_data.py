@@ -1,27 +1,36 @@
 import sys; sys.path.append("../src/")
 
 import numpy as np
+import matplotlib.pyplot as plt
 import functions as pyf
 
 parameters = str(sys.argv[1])
 
+SPS = np.loadtxt(pyf.catch_parameter(parameters, "SPS"), delimiter = ",", dtype = np.float32) 
+RPS = np.loadtxt(pyf.catch_parameter(parameters, "RPS"), delimiter = ",", dtype = np.float32) 
 XPS = np.loadtxt(pyf.catch_parameter(parameters, "XPS"), delimiter = ",", dtype = np.int32) 
-
-nTraces = (XPS[0,2] - XPS[0,1])*len(XPS)
 
 nt = int(pyf.catch_parameter(parameters, "time_samples"))
 dt = float(pyf.catch_parameter(parameters, "time_spacing"))
 
-fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
+ns = len(SPS)
+nr = len(RPS)
 
-data_folder = pyf.catch_parameter(parameters, "migration_input_folder")
+input_folder = pyf.catch_parameter(parameters, "mod_output_folder")
+output_folder = pyf.catch_parameter(parameters, "mig_input_folder")
 
-template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e6*dt)}us.bin"
+for sId in range(ns):
 
-data_file = data_folder + template
+    data_file = f"seismogram_nt{nt}_nr{nr}_{int(1e6*dt)}us_shot_{sId+1}.bin"
 
-data = pyf.read_binary_matrix(nt, nTraces, data_file)
+    seismic = pyf.read_binary_matrix(nt, nr, input_folder + data_file)
 
-data[:4500] = 0.0
+    travel_time = np.sqrt((SPS[sId,0] - RPS[:,0])**2 + 
+                          (SPS[sId,1] - RPS[:,1])**2) / 1500
 
-data.flatten("F").astype(np.float32, order = "F").tofile(data_file)
+    tId = np.array((travel_time + 1.0) / dt, dtype = int)
+
+    for rId in range(nr):
+        seismic[:tId[rId], rId] = 0.0
+
+    seismic.flatten("F").astype(np.float32, order = "F").tofile(output_folder + data_file)

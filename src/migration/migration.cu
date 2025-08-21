@@ -18,12 +18,8 @@ void Migration::set_parameters()
     set_properties();
     set_coordinates();
 
-    input_folder = catch_parameter("migration_input_folder", parameters);
-    output_folder = catch_parameter("migration_output_folder", parameters);
-
-    std::string input_file = input_folder + "seismogram_nt" + std::to_string(nt) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(int(1e6f*dt)) + "us.bin";
-
-    import_binary_float(input_file, seismic_data, geometry->nTraces*nt); 
+    input_folder = catch_parameter("mig_input_folder", parameters);
+    output_folder = catch_parameter("mig_output_folder", parameters);
 
     image = new float[nPoints]();
     sumPs = new float[nPoints]();
@@ -98,14 +94,12 @@ void Migration::backward_propagation()
 
 void Migration::set_seismic_source()
 {
-    for (int timeId = 0; timeId < nt; timeId++)
-        for (int spreadId = 0; spreadId < geometry->spread; spreadId++)
-            seismogram[timeId + spreadId*nt] = seismic_data[timeId + spreadId*nt + srcId*geometry->spread*nt];     
-
+    std::string data_file = data_folder + "seismogram_nt" + std::to_string(nt) + "_nr" + std::to_string(geometry->spread) + "_" + std::to_string(int(1e6f*dt)) + "us_shot_" + std::to_string(srcId+1) + ".bin";
+    import_binary_float(data_file, seismogram, nt*geometry->spread);
     cudaMemcpy(d_seismogram, seismogram, nt*geometry->spread*sizeof(float), cudaMemcpyHostToDevice);
 }
 
-void Migration::image_enhancing()
+void Migration::export_seismic()
 {
     cudaMemcpy(partial, d_image, matsize*sizeof(float), cudaMemcpyDeviceToHost);
     reduce_boundary(partial, image);
@@ -125,18 +119,17 @@ void Migration::image_enhancing()
 
         if((i > 0) && (i < nz-1) && (j > 0) && (j < nx-1)) 
         {
-            float d2I_dz2 = (image[(i-1) + j*nz] - 2.0f*image[i + j*nz] + image[(i+1) + j*nz]) / (dh * dh);
+            float d2I_dx2 = (image[i + (j-1)*nz] - 2.0f*image[index] + image[i + (j+1)*nz]) / (dh * dh);
+            float d2I_dz2 = (image[(i-1) + j*nz] - 2.0f*image[index] + image[(i+1) + j*nz]) / (dh * dh);
 
-            image[index] = d2I_dz2;
+            // sumPs[index] = d2I_dx2 + d2I_dz2;
+            sumPs[index] = d2I_dz2;
         }
-        else image[index] = 0.0f;    
+        else sumPs[index] = 0.0f;    
     }
-}
 
-void Migration::export_seismic()
-{
     std::string output_file = output_folder + "RTM_section_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
-    export_binary_float(output_file, image, nPoints);
+    export_binary_float(output_file, sumPs, nPoints);
 }
 
 __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * image, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int tlag, int nxx, int nzz, int nt, float dh, float dt)

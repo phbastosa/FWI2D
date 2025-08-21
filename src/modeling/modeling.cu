@@ -25,7 +25,7 @@ void Modeling::set_main_parameters()
 
     fmax = std::stof(catch_parameter("max_frequency", parameters));
     
-    data_folder = catch_parameter("modeling_output_folder", parameters);
+    data_folder = catch_parameter("mod_output_folder", parameters);
 }
 
 void Modeling::set_wavelet()

@@ -20,8 +20,6 @@ int main(int argc, char **argv)
 
     auto tf = std::chrono::system_clock::now();
 
-    migration->image_enhancing();
-
     migration->export_seismic();
 
     std::chrono::duration<double> elapsed_seconds = tf - ti;

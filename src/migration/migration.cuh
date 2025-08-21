@@ -32,7 +32,6 @@ public:
     void set_parameters();
     void forward_propagation();
     void backward_propagation();
-    void image_enhancing();
     void export_seismic();
 };
 

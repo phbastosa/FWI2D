@@ -50,43 +50,9 @@ plt.savefig("migration_test_model.png", dpi = 200)
 
 #-----------------------------------------------------------------------------------
 
-fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
+image_folder = pyf.catch_parameter(parameters, "mig_output_folder")
 
-nTraces = np.sum(XPS[:,2] - XPS[:,1])
-
-data_folder = pyf.catch_parameter(parameters, "migration_input_folder") 
-
-template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e6*dt)}us.bin"
-
-seismic = pyf.read_binary_matrix(nt, nTraces, data_folder + template)
-
-scale = 15*np.std(seismic)
-
-fig, ax = plt.subplots(figsize = (15, 7))
-
-xloc = np.linspace(0, nTraces-1, 5)
-xlab = np.linspace(0, nTraces, 5, dtype = int)
-
-tloc = np.linspace(0, nt-1, 11)
-tlab = np.around(np.linspace(0, (nt-1)*dt, 11), decimals = 1)
-
-im = ax.imshow(seismic, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
-
-ax.set_xticks(xloc)
-ax.set_yticks(tloc)
-ax.set_xticklabels(xlab)    
-ax.set_yticklabels(tlab)    
-ax.set_ylabel("Time [s]", fontsize = 15)
-ax.set_xlabel("Traces", fontsize = 15)
-
-fig.tight_layout()
-plt.savefig("migration_test_data.png", dpi = 200)
-
-#-----------------------------------------------------------------------------------
-
-image_folder = pyf.catch_parameter(parameters, "migration_output_folder")
-
-image = pyf.read_binary_matrix(nz, nx, image_folder + f"RTM_section_{nz}x{nx}_{int(fmax)}Hz.bin")
+image = pyf.read_binary_matrix(nz, nx, image_folder + f"RTM_section_{nz}x{nx}.bin")
 
 scale = 10*np.std(image)
 

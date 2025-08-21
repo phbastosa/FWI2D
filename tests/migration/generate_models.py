@@ -16,4 +16,4 @@ hz = int(0.75*nz)
 
 Vp[hz-1:hz+2,hx-1:hx+2] += 500
 
-Vp.flatten("F").astype(np.float32, order = "F").tofile(f"../inputs/models/migration_test_vp_{nz}x{nx}_{dh:.0f}m.bin")
+Vp.flatten("F").astype(np.float32, order = "F").tofile(f"../inputs/models/migration_test_vp.bin")
