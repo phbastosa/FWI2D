@@ -122,8 +122,7 @@ void Migration::export_seismic()
             float d2I_dx2 = (image[i + (j-1)*nz] - 2.0f*image[index] + image[i + (j+1)*nz]) / (dh * dh);
             float d2I_dz2 = (image[(i-1) + j*nz] - 2.0f*image[index] + image[(i+1) + j*nz]) / (dh * dh);
 
-            // sumPs[index] = d2I_dx2 + d2I_dz2;
-            sumPs[index] = d2I_dz2;
+            sumPs[index] = d2I_dx2 + d2I_dz2;
         }
         else sumPs[index] = 0.0f;    
     }
