@@ -40,8 +40,6 @@ void Geometry::set_parameters()
         spread = fRec[i] - iRec[i];
     }    
 
-    nTraces = nrel*spread;
-
     std::vector<std::string>().swap(AUX);
 
     for (int i = 0; i < nsrc; i++)

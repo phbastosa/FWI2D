@@ -6,6 +6,8 @@
 
 # include "../geometry/geometry.hpp"
 
+# define NW 8
+
 # define WIDTH 80
 # define NTHREADS 256
 
@@ -30,16 +32,15 @@ protected:
     int nt, nx, nz, nb, nPoints;
     int sIdx, sIdz, tlag;
 
-    int * rIdx = nullptr;
-    int * rIdz = nullptr;
-
     float * Vp = nullptr;
 
     float * seismogram = nullptr;
-    float * seismic_data = nullptr;
 
     float * d_X = nullptr;
     float * d_Z = nullptr;
+
+    float * d_sw = nullptr;
+    float * d_rw = nullptr;
 
     int * d_rIdx = nullptr;
     int * d_rIdz = nullptr;
@@ -80,13 +81,13 @@ public:
     void set_parameters();
     void initialization();
     void forward_solver();
-    void set_seismogram();
+    void get_seismogram();
     void show_information();    
     void export_output_data();
 };
 
-__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dh, float dt, bool ABC);
-__global__ void compute_seismogram(float * P, int * d_rIdx, int * d_rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz);
+__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_sw, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dh, float dt, bool ABC);
+__global__ void compute_seismogram(float * P, int * d_rIdx, int * d_rIdz, float * d_rw, float * seismogram, int spread, int tId, int tlag, int nt, int nzz);
 __device__ float get_boundary_damper(float * d1D, float * d2D, int i, int j, int nxx, int nzz, int nb);
 
 __device__ float get_random_value(float velocity, float function, float parameter, int index, float varVp);

@@ -28,105 +28,6 @@ void Modeling::set_main_parameters()
     data_folder = catch_parameter("modeling_output_folder", parameters);
 }
 
-void Modeling::set_abc_dampers()
-{
-    ABC = true;
-
-    abc_length = std::stof(catch_parameter("abc_length", parameters));
-    abc_factor = std::stof(catch_parameter("abc_factor", parameters));
-
-    nb = (int)(abc_length / dh) + 4;
-
-    float * damp1D = new float[nb]();
-    float * damp2D = new float[nb*nb]();
-
-    for (int i = 0; i < nb; i++) 
-    {
-        damp1D[i] = expf(-powf(abc_factor * (nb - i), 2.0f));
-    }
-
-    for(int i = 0; i < nb; i++) 
-    {
-        for (int j = 0; j < nb; j++)
-        {   
-            damp2D[j + i*nb] += damp1D[i];
-            damp2D[i + j*nb] += damp1D[i];
-        }
-    }
-
-    for (int index = 0; index < nb*nb; index++)
-        damp2D[index] -= 1.0f;
-
-    cudaMalloc((void**)&(d_b1d), nb*sizeof(float));
-    cudaMalloc((void**)&(d_b2d), nb*nb*sizeof(float));
-
-    cudaMemcpy(d_b1d, damp1D, nb*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_b2d, damp2D, nb*nb*sizeof(float), cudaMemcpyHostToDevice);
-
-    delete[] damp1D;
-    delete[] damp2D;
-}
-
-void Modeling::set_seismograms()
-{
-    sBlocks = (int)((geometry->spread + NTHREADS - 1) / NTHREADS); 
-    seismogram = new float[nt*geometry->spread]();
-    seismic_data = new float[nt*geometry->nTraces]();
-
-    cudaMalloc((void**)&(d_seismogram), nt*geometry->spread*sizeof(float));
-}
-
-void Modeling::set_properties()
-{
-    nPoints = nx*nz;
-    nxx = nx + 2*nb;
-    nzz = nz + 2*nb;
-
-    matsize = nxx*nzz;
-
-    nBlocks = (int)((matsize + NTHREADS - 1) / NTHREADS);
-
-    Vp = new float[matsize]();
-
-    float * vp = new float[nPoints]();
-
-    cudaMalloc((void**)&(d_P), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_Vp), matsize*sizeof(float));
-    cudaMalloc((void**)&(d_Pold), matsize*sizeof(float));
-
-    std::string vp_file = catch_parameter("model_file", parameters);
-
-    import_binary_float(vp_file, vp, nPoints);
-
-    vmax = 0.0f;
-    vmin = 1e9f;
-
-    for (int index = 0; index < nPoints; index++)
-    {
-        vmax = vmax < vp[index] ? vp[index] : vmax; 
-        vmin = vmin > vp[index] ? vp[index] : vmin; 
-    }
-
-    expand_boundary(vp, Vp);
-    
-    cudaMemcpy(d_Vp, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
-
-    delete[] vp;
-}
-
-void Modeling::set_geometry()
-{
-    geometry = new Geometry();
-    geometry->parameters = parameters;
-    geometry->set_parameters();
-    
-    rIdx = new int[geometry->spread]();
-    rIdz = new int[geometry->spread]();
-    
-    cudaMalloc((void**)&(d_rIdx), geometry->spread*sizeof(int));
-    cudaMalloc((void**)&(d_rIdz), geometry->spread*sizeof(int));
-}
-
 void Modeling::set_wavelet()
 {
     float * signal_aux = new float[nt]();
@@ -185,6 +86,104 @@ void Modeling::set_wavelet()
     fftw_destroy_plan(inverse_plan);
 
     delete[] signal_aux;
+}
+
+void Modeling::set_geometry()
+{
+    geometry = new Geometry();
+    geometry->parameters = parameters;
+    geometry->set_parameters();
+        
+    cudaMalloc((void**)&(d_rIdx), geometry->spread*sizeof(int));
+    cudaMalloc((void**)&(d_rIdz), geometry->spread*sizeof(int));
+
+    cudaMalloc((void**)&(d_sw), NW*NW*sizeof(float));
+    cudaMalloc((void**)&(d_rw), NW*NW*geometry->spread*sizeof(float));
+}
+
+void Modeling::set_seismograms()
+{
+    sBlocks = (int)((geometry->spread + NTHREADS - 1) / NTHREADS);
+
+    seismogram = new float[nt*geometry->spread]();
+
+    cudaMalloc((void**)&(d_seismogram), nt*geometry->spread*sizeof(float));
+}
+
+void Modeling::set_abc_dampers()
+{
+    ABC = true;
+
+    abc_length = std::stof(catch_parameter("abc_length", parameters));
+    abc_factor = std::stof(catch_parameter("abc_factor", parameters));
+
+    nb = (int)(abc_length / dh) + 4;
+
+    float * damp1D = new float[nb]();
+    float * damp2D = new float[nb*nb]();
+
+    for (int i = 0; i < nb; i++) 
+    {
+        damp1D[i] = expf(-powf(abc_factor * (nb - i), 2.0f));
+    }
+
+    for(int i = 0; i < nb; i++) 
+    {
+        for (int j = 0; j < nb; j++)
+        {   
+            damp2D[j + i*nb] += damp1D[i];
+            damp2D[i + j*nb] += damp1D[i];
+        }
+    }
+
+    for (int index = 0; index < nb*nb; index++)
+        damp2D[index] -= 1.0f;
+
+    cudaMalloc((void**)&(d_b1d), nb*sizeof(float));
+    cudaMalloc((void**)&(d_b2d), nb*nb*sizeof(float));
+
+    cudaMemcpy(d_b1d, damp1D, nb*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_b2d, damp2D, nb*nb*sizeof(float), cudaMemcpyHostToDevice);
+
+    delete[] damp1D;
+    delete[] damp2D;
+}
+
+void Modeling::set_properties()
+{
+    nPoints = nx*nz;
+
+    nxx = nx + 2*nb;
+    nzz = nz + 2*nb;
+
+    matsize = nxx*nzz;
+
+    nBlocks = (int)((matsize + NTHREADS - 1) / NTHREADS);
+
+    Vp = new float[matsize]();
+
+    cudaMalloc((void**)&(d_P), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Vp), matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pold), matsize*sizeof(float));
+
+    float * vp = new float[nPoints]();
+    std::string vp_file = catch_parameter("model_file", parameters);
+    import_binary_float(vp_file, vp, nPoints);
+
+    vmax = 0.0f;
+    vmin = 1e9f;
+
+    for (int index = 0; index < nPoints; index++)
+    {
+        vmax = vmax < vp[index] ? vp[index] : vmax; 
+        vmin = vmin > vp[index] ? vp[index] : vmin; 
+    }
+
+    expand_boundary(vp, Vp);
+    
+    cudaMemcpy(d_Vp, Vp, matsize*sizeof(float), cudaMemcpyHostToDevice);
+
+    delete[] vp;
 }
 
 void Modeling::expand_boundary(float * input, float * output)
@@ -251,36 +250,67 @@ void Modeling::show_information()
 
 void Modeling::initialization()
 {
-    sIdx = (int)(geometry->xsrc[geometry->sInd[srcId]] / dh) + nb;
-    sIdz = (int)(geometry->zsrc[geometry->sInd[srcId]] / dh) + nb;
+    float sx = geometry->xsrc[geometry->sInd[srcId]];
+    float sz = geometry->zsrc[geometry->sInd[srcId]];
+
+    sIdx = (int)(sx / dh);
+    sIdz = (int)(sz / dh);
+
+    float * h_sw = new float[NW*NW]();
+
+    auto sw = hicks_weights(sx, sz, sIdx, sIdz, dh);
+
+    for (int xId = 0; xId < NW; xId++)
+        for (int zId = 0; zId < NW; zId++)
+            h_sw[zId + xId*NW] = sw[zId][xId];
+
+    sIdx += nb; 
+    sIdz += nb;
+
+    int * h_rIdx = new int[geometry->spread]();
+    int * h_rIdz = new int[geometry->spread]();
+
+    float * h_rw = new float[NW*NW*geometry->spread]();
 
     int spreadId = 0;
 
     for (int recId = geometry->iRec[srcId]; recId < geometry->fRec[srcId]; recId++)
     {
-        rIdx[spreadId] = (int)(geometry->xrec[recId] / dh) + nb;
-        rIdz[spreadId] = (int)(geometry->zrec[recId] / dh) + nb;
+        float rx = geometry->xrec[recId];
+        float rz = geometry->zrec[recId];
+
+        int rIdx = (int)(rx / dh);
+        int rIdz = (int)(rz / dh);
+
+        auto rw = hicks_weights(rx, rz, rIdx, rIdz, dh);
+
+        for (int xId = 0; xId < NW; xId++)
+            for (int zId = 0; zId < NW; zId++)
+                h_rw[zId + xId*NW + spreadId*NW*NW] = rw[zId][xId];
+        
+        h_rIdx[spreadId] = rIdx + nb;
+        h_rIdz[spreadId] = rIdz + nb;
 
         ++spreadId;
     }
 
-    cudaMemcpy(d_rIdx, rIdx, geometry->spread*sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_rIdz, rIdz, geometry->spread*sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sw, h_sw, NW*NW*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_rw, h_rw, NW*NW*geometry->spread*sizeof(float), cudaMemcpyHostToDevice);
+
+    cudaMemcpy(d_rIdx, h_rIdx, geometry->spread*sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_rIdz, h_rIdz, geometry->spread*sizeof(int), cudaMemcpyHostToDevice);
+
+    delete[] h_sw;
+    delete[] h_rw;
+    delete[] h_rIdx;
+    delete[] h_rIdz;  
 }
 
-void Modeling::set_seismogram()
+void Modeling::get_seismogram()
 {
     cudaMemcpy(seismogram, d_seismogram, nt*geometry->spread*sizeof(float), cudaMemcpyDeviceToHost);
-
-    for (int timeId = 0; timeId < nt; timeId++)
-        for (int spreadId = 0; spreadId < geometry->spread; spreadId++)
-            seismic_data[timeId + spreadId*nt + srcId*geometry->spread*nt] = seismogram[timeId + spreadId*nt];    
-}
-
-void Modeling::export_output_data()
-{
-    std::string data_file = data_folder + "seismogram_nt" + std::to_string(nt) + "_nTraces" + std::to_string(geometry->nTraces) + "_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(int(1e6f*dt)) + "us.bin";
-    export_binary_float(data_file, seismic_data, nt*geometry->nTraces);    
+    std::string data_file = data_folder + "seismogram_nt" + std::to_string(nt) + "_nr" + std::to_string(geometry->spread) + "_" + std::to_string(int(1e6f*dt)) + "us_shot_" + std::to_string(srcId+1) + ".bin";
+    export_binary_float(data_file, seismogram, nt*geometry->spread);  
 }
 
 void Modeling::forward_solver()
@@ -290,15 +320,15 @@ void Modeling::forward_solver()
 
     for (int tId = 0; tId < tlag + nt; tId++)
     {
-        compute_pressure<<<nBlocks, NTHREADS>>>(d_Vp, d_P, d_Pold, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, dh, dt, ABC);
+        compute_pressure<<<nBlocks, NTHREADS>>>(d_Vp, d_P, d_Pold, d_wavelet, d_sw, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, dh, dt, ABC);
         
-        compute_seismogram<<<sBlocks, NTHREADS>>>(d_P, d_rIdx, d_rIdz, d_seismogram, geometry->spread, tId, tlag, nt, nzz);     
+        compute_seismogram<<<sBlocks, NTHREADS>>>(d_P, d_rIdx, d_rIdz, d_rw, d_seismogram, geometry->spread, tId, tlag, nt, nzz);     
 
         std::swap(d_P, d_Pold);
     }
 }
 
-__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dh, float dt, bool ABC)
+__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_wavelet, float * d_sw, float * d_b1d, float * d_b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dh, float dt, bool ABC)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -306,7 +336,18 @@ __global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_
     int j = (int)(index / nzz);
 
     if ((index == 0) && (tId < nt))
-        P[sIdz + sIdx*nzz] += d_wavelet[tId] / (dh*dh); 
+    {
+        for (int xId = 0; xId < NW; xId++)
+        {
+            int xi = sIdx + xId - 3;        
+            for (int zId = 0; zId < NW; zId++)
+            {
+                int zi = sIdz + zId - 3;        
+
+                P[zi + xi*nzz] += d_sw[zId + xId*NW]*d_wavelet[tId] / (dh*dh); 
+            }
+        }
+    }
 
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
@@ -334,12 +375,25 @@ __global__ void compute_pressure(float * Vp, float * P, float * Pold, float * d_
     }
 }
 
-__global__ void compute_seismogram(float * P, int * d_rIdx, int * d_rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz)
+__global__ void compute_seismogram(float * P, int * d_rIdx, int * d_rIdz, float * d_rw, float * seismogram, int spread, int tId, int tlag, int nt, int nzz)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if ((index < spread) && (tId >= tlag))
-        seismogram[(tId - tlag) + index * nt] = P[d_rIdz[index] + d_rIdx[index]*nzz];
+    if ((index < spread) && (tId > tlag))
+    {   
+        seismogram[(tId - tlag) + index*nt] = 0.0f;    
+                
+        for (int xId = 0; xId < NW; xId++)
+        {
+            int xi = d_rIdx[index] + xId - 3;        
+            for (int zId = 0; zId < NW; zId++)
+            {
+                int zi = d_rIdz[index] + zId - 3;        
+
+                seismogram[(tId - tlag) + index*nt] += d_rw[zId + xId*NW + index*NW*NW]*P[zi + xi*nzz];
+            }
+        }
+    } 
 }
 
 __device__ float get_boundary_damper(float * d_b1d, float * d_b2d, int i, int j, int nxx, int nzz, int nb)

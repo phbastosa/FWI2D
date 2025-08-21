@@ -109,6 +109,77 @@ std::vector<std::string> split(std::string s, char delimiter)
     return tokens;
 }
 
+float sinc(float x) 
+{
+    if (fabsf(x) < 1e-8f) return 1.0f;
+    return sinf(M_PI * x) / (M_PI * x);
+}
+
+float bessel_i0(float x) 
+{
+    float sum = 1.0f, term = 1.0f, k = 1.0f;
+    
+    while (term > 1e-10f) 
+    {
+        term *= (x / (2.0f * k)) * (x / (2.0f * k));
+        sum += term;
+        k += 1.0f;
+    }
+
+    return sum;
+}
+
+std::vector<std::vector<float>> hicks_weights(float x, float z, int ix0, int iz0, float dh) 
+{
+    const int N = 8;
+    const float beta = 6.41f;
+
+    std::vector<std::vector<float>> weights(N, std::vector<float>(N));
+
+    float rmax = sqrtf(2.0f*dh*dh);
+    float I0_beta = bessel_i0(beta);
+
+    float sum = 0.0f;
+
+    for (int j = 0; j < N; ++j) 
+    {
+        float xj = (ix0 + j - 3) * dh;
+        float dxr = (x - xj) / dh;
+
+        for (int i = 0; i < N; ++i) 
+        {    
+            float zi = (iz0 + i - 3) * dh;
+            float dzr = (z - zi) / dh;
+        
+            float rz = z - zi;
+            float rx = x - xj;
+
+            float r = sqrtf(rx*rx + rz*rz);
+
+            float rnorm = r / rmax;
+
+            float wij = 0.0f;
+            if (rnorm <= 1.0f) 
+            {
+                float arg = beta * sqrtf(1.0f - rnorm * rnorm);
+                wij = bessel_i0(arg) / I0_beta;
+            }
+
+            float sinc_term = sinc(dxr) * sinc(dzr);
+
+            weights[i][j] = sinc_term * wij;
+
+            sum += weights[i][j];
+        }
+    }
+
+    for (int j = 0; j < N; ++j)
+        for (int i = 0; i < N; ++i)
+            weights[i][j] /= sum;
+
+    return weights;
+}
+
 std::random_device rd;  
 std::mt19937 rng(rd()); 
 
@@ -148,13 +219,16 @@ std::vector<Point> poissonDiskSampling(float x_max, float z_max, float radius)
             {
                 int nx = gx + j;
                 int nz = gz + i;
+
                 if (nx >= 0 && nz >= 0 && nx < grid_x && nz < grid_z) 
                 {
                     Point neighbor = grid[nz + nx*grid_z];
-                    if (neighbor.x != -1 && std::hypot(neighbor.x - p.x, neighbor.z - p.z) < radius) 
-                    {
+
+                    float dx = neighbor.x - p.x;
+                    float dz = neighbor.z - p.z;
+
+                    if (neighbor.x != -1 && sqrtf(dx*dx + dz*dz) < radius) 
                         return false;
-                    }
                 }
             }
         }
@@ -169,7 +243,10 @@ std::vector<Point> poissonDiskSampling(float x_max, float z_max, float radius)
         float angle = distAngle(rng);
         float r = distRadius(rng);
         
-        return Point{p.x + r*std::cos(angle), p.z + r*std::sin(angle)};
+        return Point{
+            p.x + r*std::cos(angle), 
+            p.z + r*std::sin(angle)
+        };
     };
 
     Point initial = {distX(rng), distY(rng)};

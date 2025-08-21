@@ -47,34 +47,36 @@ fig.tight_layout()
 plt.savefig("modeling_test_model.png", dpi = 200)
 
 
-fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
 
-nTraces = np.sum(XPS[:,2] - XPS[:,1])
+spread = XPS[0,2] - XPS[0,1]
+
+fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
 
 data_folder = pyf.catch_parameter(parameters, "modeling_output_folder") 
 
-template =  f"seismogram_nt{nt}_nTraces{nTraces}_{int(fmax)}Hz_{int(1e6*dt)}us.bin"
+fig, ax = plt.subplots(ncols = len(SPS), figsize = (15, 7))
 
-seismic = pyf.read_binary_matrix(nt, nTraces, data_folder + template)
-
-scale = np.std(seismic)
-
-fig, ax = plt.subplots(figsize = (15, 7))
-
-xloc = np.linspace(0, nTraces-1, 5)
-xlab = np.linspace(0, nTraces, 5, dtype = int)
+xloc = np.linspace(0, spread-1, 5)
+xlab = np.linspace(0, spread, 5, dtype = int)
 
 tloc = np.linspace(0, nt-1, 11)
 tlab = np.linspace(0, (nt-1)*dt, 11, dtype = float)
 
-im = ax.imshow(seismic, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
+for sId in range(len(SPS)):
 
-ax.set_xticks(xloc)
-ax.set_yticks(tloc)
-ax.set_xticklabels(xlab)    
-ax.set_yticklabels(tlab)    
-ax.set_ylabel("Time [s]", fontsize = 15)
-ax.set_xlabel("Traces", fontsize = 15)
+    template =  f"seismogram_nt{nt}_nr{spread}_{int(1e6*dt)}us_shot_{sId+1}.bin"
+    seismic = pyf.read_binary_matrix(nt, spread, data_folder + template)
+
+    scale = np.std(seismic)
+
+    im = ax[sId].imshow(seismic, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = scale)
+
+    ax[sId].set_xticks(xloc)
+    ax[sId].set_yticks(tloc)
+    ax[sId].set_xticklabels(xlab)    
+    ax[sId].set_yticklabels(tlab)    
+    ax[sId].set_ylabel("Time [s]", fontsize = 15)
+    ax[sId].set_xlabel("Traces", fontsize = 15)
 
 fig.tight_layout()
 plt.savefig("modeling_test_data.png", dpi = 200)

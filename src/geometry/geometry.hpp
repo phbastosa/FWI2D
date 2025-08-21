@@ -11,7 +11,7 @@ public:
     int nrec;
     int nrel;
 
-    int spread, nTraces;
+    int spread;
 
     int * sInd = nullptr;
     int * iRec = nullptr;
