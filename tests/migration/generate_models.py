@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-x_max = 5e3
-z_max = 5e3
+x_max = 1e3
+z_max = 1e3
 
 dh = 10.0
 
@@ -11,9 +11,8 @@ nz = int((z_max / dh) + 1)
 
 Vp = np.zeros((nz,nx)) + 1500
 
-hx = int(0.50*nx)
-hz = int(4000/dh)
+hz = int(0.8*nz)
 
-Vp[hz-10:hz+10,:] += 500
+Vp[hz-5:hz+6,:] += 500
 
 Vp.flatten("F").astype(np.float32, order = "F").tofile(f"../inputs/models/migration_test_vp.bin")

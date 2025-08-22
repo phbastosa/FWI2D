@@ -2,8 +2,8 @@
 # Model parameters ------------------------------------------
 #------------------------------------------------------------
 
-x_samples = 501      
-z_samples = 501
+x_samples = 101      
+z_samples = 101
 
 model_spacing = 10.0
 
@@ -21,20 +21,15 @@ XPS = ../inputs/geometry/migration_test_XPS.txt
 # Modeling parameters ---------------------------------------
 #------------------------------------------------------------
 
-time_samples = 6001
+time_samples = 1501
 time_spacing = 1e-3
 
-max_frequency = 30.0
+max_frequency = 45.0
 
-abc_length = 2000
-abc_factor = 1e-3
+abc_length = 1000
+abc_factor = 2e-4
 
 mod_output_folder = ../outputs/data/migration_test_
-
-#------------------------------------------------------------
-# Inversion parameters --------------------------------------
-#------------------------------------------------------------
-
 
 #------------------------------------------------------------
 # Migration parameters --------------------------------------
@@ -42,7 +37,7 @@ mod_output_folder = ../outputs/data/migration_test_
 
 mig_rbc_ratio = 100
 mig_rbc_varVp = 1000
-mig_rbc_length = 300
+mig_rbc_length = 500
 
 mig_input_folder = ../inputs/data/migration_test_
 mig_output_folder = ../outputs/seismic/migration_test_

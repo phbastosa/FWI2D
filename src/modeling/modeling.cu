@@ -116,34 +116,34 @@ void Modeling::set_abc_dampers()
 
     nb = (int)(abc_length / dh) + 4;
 
-    float * damp1D = new float[nb]();
-    float * damp2D = new float[nb*nb]();
+    float * b1d = new float[nb]();
+    float * b2d = new float[nb*nb]();
 
     for (int i = 0; i < nb; i++) 
     {
-        damp1D[i] = expf(-powf(abc_factor * (nb - i), 2.0f));
+        b1d[i] = expf(-powf(abc_factor * (nb - i), 2.0f));
     }
 
     for(int i = 0; i < nb; i++) 
     {
         for (int j = 0; j < nb; j++)
         {   
-            damp2D[j + i*nb] += damp1D[i];
-            damp2D[i + j*nb] += damp1D[i];
+            b2d[j + i*nb] += b1d[i];
+            b2d[i + j*nb] += b1d[i];
         }
     }
 
     for (int index = 0; index < nb*nb; index++)
-        damp2D[index] -= 1.0f;
+        b2d[index] -= 1.0f;
 
     cudaMalloc((void**)&(d_b1d), nb*sizeof(float));
     cudaMalloc((void**)&(d_b2d), nb*nb*sizeof(float));
 
-    cudaMemcpy(d_b1d, damp1D, nb*sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_b2d, damp2D, nb*nb*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_b1d, b1d, nb*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_b2d, b2d, nb*nb*sizeof(float), cudaMemcpyHostToDevice);
 
-    delete[] damp1D;
-    delete[] damp2D;
+    delete[] b1d;
+    delete[] b2d;
 }
 
 void Modeling::set_properties()
@@ -391,6 +391,8 @@ __device__ float get_boundary_damper(float * b1d, float * b2d, int i, int j, int
     return damper;
 }
 
+// Random Boundary Condition
+
 std::random_device RBC;  
 std::mt19937 RBC_RNG(RBC()); 
 
@@ -487,8 +489,8 @@ __global__ void random_boundary_bg(float * vp, int nxx, int nzz, int nb, float v
         int index3 = i + nb*nzz;
         int index4 = i + (nxx-nb)*nzz;     
 
-        vp[index1] = get_random_value(vp[index3], f1d, varVp, index, varVp);
-        vp[index2] = get_random_value(vp[index4], f1d, varVp, index, varVp);        
+        vp[index1] = get_random_value(vp[index3], f1d, varVp, index);
+        vp[index2] = get_random_value(vp[index4], f1d, varVp, index);        
     }
     
     if ((i >= 0) && (i < nb) && (j >= nb) && (j < nxx-nb))    
@@ -500,29 +502,29 @@ __global__ void random_boundary_bg(float * vp, int nxx, int nzz, int nb, float v
         int index3 = nb + j*nzz;
         int index4 = nzz-nb + j*nzz;     
 
-        vp[index1] = get_random_value(vp[index3], f1d, varVp, index, varVp);
-        vp[index2] = get_random_value(vp[index4], f1d, varVp, index, varVp);
+        vp[index1] = get_random_value(vp[index3], f1d, varVp, index);
+        vp[index2] = get_random_value(vp[index4], f1d, varVp, index);
     }
 
     if ((i >= 0) && (i < nb) && (j >= i) && (j < nb))
     {
         float f1d = 1.0f - (float)(i) / (float)(nb);
 
-        vp[j + i*nzz] = get_random_value(vp[nb + nb*nzz], f1d, varVp, index, varVp);
-        vp[i + j*nzz] = get_random_value(vp[nb + nb*nzz], f1d, varVp, index, varVp);    
+        vp[j + i*nzz] = get_random_value(vp[nb + nb*nzz], f1d, varVp, index);
+        vp[i + j*nzz] = get_random_value(vp[nb + nb*nzz], f1d, varVp, index);    
 
-        vp[j + (nxx-i-1)*nzz] = get_random_value(vp[nb + (nxx-nb)*nzz], f1d, varVp, index, varVp);
-        vp[i + (nxx-j-1)*nzz] = get_random_value(vp[nb + (nxx-nb)*nzz], f1d, varVp, index, varVp);
+        vp[j + (nxx-i-1)*nzz] = get_random_value(vp[nb + (nxx-nb)*nzz], f1d, varVp, index);
+        vp[i + (nxx-j-1)*nzz] = get_random_value(vp[nb + (nxx-nb)*nzz], f1d, varVp, index);
 
-        vp[nzz-j-1 + i*nzz] = get_random_value(vp[nzz-nb + nb*nzz], f1d, varVp, index, varVp);
-        vp[nzz-i-1 + j*nzz] = get_random_value(vp[nzz-nb + nb*nzz], f1d, varVp, index, varVp);
+        vp[nzz-j-1 + i*nzz] = get_random_value(vp[nzz-nb + nb*nzz], f1d, varVp, index);
+        vp[nzz-i-1 + j*nzz] = get_random_value(vp[nzz-nb + nb*nzz], f1d, varVp, index);
 
-        vp[nzz-j-1 + (nxx-i-1)*nzz] = get_random_value(vp[nzz-nb + (nxx-nb)*nzz], f1d, varVp, index, varVp);
-        vp[nzz-i-1 + (nxx-j-1)*nzz] = get_random_value(vp[nzz-nb + (nxx-nb)*nzz], f1d, varVp, index, varVp);
+        vp[nzz-j-1 + (nxx-i-1)*nzz] = get_random_value(vp[nzz-nb + (nxx-nb)*nzz], f1d, varVp, index);
+        vp[nzz-i-1 + (nxx-j-1)*nzz] = get_random_value(vp[nzz-nb + (nxx-nb)*nzz], f1d, varVp, index);
     }
 }
 
-__device__ float get_random_value(float velocity, float function, float parameter, int index, float varVp)
+__device__ float get_random_value(float velocity, float function, float parameter, int index)
 {
     curandState state;
     curand_init(clock64(), index, 0, &state);

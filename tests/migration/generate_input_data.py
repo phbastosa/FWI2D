@@ -28,7 +28,7 @@ for sId in range(ns):
     travel_time = np.sqrt((SPS[sId,0] - RPS[:,0])**2 + 
                           (SPS[sId,1] - RPS[:,1])**2) / 1500
 
-    tId = np.array((travel_time + 1.0) / dt, dtype = int)
+    tId = np.array((travel_time + 0.1) / dt, dtype = int)
 
     for rId in range(nr):
         seismic[:tId[rId], rId] = 0.0

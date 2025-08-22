@@ -85,7 +85,7 @@ __global__ void compute_pressure(float * Vp, float * P, float * Pold, float * wa
 __global__ void compute_seismogram(float * P, int * rIdx, int * rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz);
 __device__ float get_boundary_damper(float * b1d, float * b2d, int i, int j, int nxx, int nzz, int nb);
 
-__device__ float get_random_value(float velocity, float function, float parameter, int index, float varVp);
+__device__ float get_random_value(float velocity, float function, float parameter, int index);
 __global__ void random_boundary_bg(float * Vp, int nxx, int nzz, int nb, float varVp);
 __global__ void random_boundary_gp(float * Vp, float * X, float * Z, int nxx, int nzz, float x_max, float z_max, float xb, float zb, float factor, float A, float xc, float zc, float r, float vmax, float vmin, float varVp);
 

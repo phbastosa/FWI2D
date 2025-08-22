@@ -54,9 +54,7 @@ image_folder = pyf.catch_parameter(parameters, "mig_output_folder")
 
 image = pyf.read_binary_matrix(nz, nx, image_folder + f"RTM_section_{nz}x{nx}.bin")
 
-image[:int(0.2*nz)] = 0.0
-
-scale = 10*np.std(image)
+scale = np.std(image)
 
 xloc = np.linspace(0, nx-1, 5)
 

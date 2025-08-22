@@ -114,10 +114,9 @@ void Migration::export_seismic()
     for (int index = 0; index < nPoints; index++)
     {
         int i = (int)(index % nz);
-        int j = (int)(index / nz);        
 
-        if((i > 0) && (i < nz-1) && (j > 0) && (j < nx-1)) 
-            sumPs[index] = (image[(i-1) + j*nz] - 2.0f*image[index] + image[(i+1) + j*nz]) / (dh * dh);
+        if((i > 0) && (i < nz-1)) 
+            sumPs[index] = (image[index-1] - 2.0f*image[index] + image[index+1]) / (dh * dh);
         else 
             sumPs[index] = 0.0f;    
     }
