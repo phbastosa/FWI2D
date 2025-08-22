@@ -77,7 +77,6 @@ void Migration::backward_propagation()
 
     show_information();
 
-    initialization();
     set_seismic_source();
 
     cudaMemset(d_Pr, 0.0f, matsize*sizeof(float));
@@ -118,13 +117,9 @@ void Migration::export_seismic()
         int j = (int)(index / nz);        
 
         if((i > 0) && (i < nz-1) && (j > 0) && (j < nx-1)) 
-        {
-            float d2I_dx2 = (image[i + (j-1)*nz] - 2.0f*image[index] + image[i + (j+1)*nz]) / (dh * dh);
-            float d2I_dz2 = (image[(i-1) + j*nz] - 2.0f*image[index] + image[(i+1) + j*nz]) / (dh * dh);
-
-            sumPs[index] = d2I_dx2 + d2I_dz2;
-        }
-        else sumPs[index] = 0.0f;    
+            sumPs[index] = (image[(i-1) + j*nz] - 2.0f*image[index] + image[(i+1) + j*nz]) / (dh * dh);
+        else 
+            sumPs[index] = 0.0f;    
     }
 
     std::string output_file = output_folder + "RTM_section_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
@@ -147,7 +142,7 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
         float d2Ps_dx2 = (- 9.0f*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
                       +   128.0f*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
                       -  1008.0f*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
-                      +  8064.0f*(Psold[i + (j+1)*nzz] + Psold[i + (j-1)*nzz])
+                      +  8064.0f*(Psold[i + (j-1)*nzz] + Psold[i + (j+1)*nzz])
                       - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2Ps_dz2 = (- 9.0f*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
@@ -159,7 +154,7 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
         float d2Pr_dx2 = (- 9.0f*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
                       +   128.0f*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
                       -  1008.0f*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
-                      +  8064.0f*(Pr[i + (j+1)*nzz] + Pr[i + (j-1)*nzz])
+                      +  8064.0f*(Pr[i + (j-1)*nzz] + Pr[i + (j+1)*nzz])
                       - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
 
         float d2Pr_dz2 = (- 9.0f*(Pr[(i-4) + j*nzz] + Pr[(i+4) + j*nzz])

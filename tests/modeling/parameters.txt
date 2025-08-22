@@ -29,7 +29,7 @@ max_frequency = 30.0
 abc_length = 1000
 abc_factor = 0.0015 
 
-modeling_output_folder = ../outputs/data/modeling_test_
+mod_output_folder = ../outputs/data/modeling_test_
 
 #------------------------------------------------------------
 # Inversion parameters --------------------------------------

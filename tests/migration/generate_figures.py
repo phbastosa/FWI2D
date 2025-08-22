@@ -35,7 +35,7 @@ cbar.set_label("Velocity P [m/s]", fontsize = 15)
 
 ax.plot(RPS[:,0]/dh, RPS[:,1]/dh, "or", label = "receivers")
 ax.plot(SPS[:,0]/dh, SPS[:,1]/dh, "og", label = "sources")
-
+ax.grid(True)
 ax.set_xticks(xloc)
 ax.set_yticks(zloc)
 ax.set_xticklabels(xlab)    
@@ -54,6 +54,8 @@ image_folder = pyf.catch_parameter(parameters, "mig_output_folder")
 
 image = pyf.read_binary_matrix(nz, nx, image_folder + f"RTM_section_{nz}x{nx}.bin")
 
+image[:int(0.2*nz)] = 0.0
+
 scale = 10*np.std(image)
 
 xloc = np.linspace(0, nx-1, 5)
@@ -66,7 +68,7 @@ im = ax.imshow(image, aspect = "auto", cmap = "Greys", vmin = -scale, vmax = sca
 
 ax.plot(RPS[:,0]/dh, RPS[:,1]/dh, "or", label = "receivers")
 ax.plot(SPS[:,0]/dh, SPS[:,1]/dh, "og", label = "sources")
-
+ax.grid(True)
 ax.set_xticks(xloc)
 ax.set_yticks(zloc)
 ax.set_xticklabels(xlab)    

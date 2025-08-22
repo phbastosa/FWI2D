@@ -52,7 +52,7 @@ spread = XPS[0,2] - XPS[0,1]
 
 fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
 
-data_folder = pyf.catch_parameter(parameters, "modeling_output_folder") 
+data_folder = pyf.catch_parameter(parameters, "mod_output_folder") 
 
 fig, ax = plt.subplots(ncols = len(SPS), figsize = (15, 7))
 
