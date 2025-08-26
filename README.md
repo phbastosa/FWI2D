@@ -1,2 +1,1 @@
-# FWI2D
-Classical Full Waveform Inversion
+## Classical Full Waveform Inversion
