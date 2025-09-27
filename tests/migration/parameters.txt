@@ -40,6 +40,7 @@ mig_rbc_varVp = 1000
 mig_rbc_length = 500
 
 mig_input_folder = ../inputs/data/migration_test_
+mig_input_prefix = seismogram_nt1501_nr9_1000us_shot_
 mig_output_folder = ../outputs/seismic/migration_test_
 
 
