@@ -7,29 +7,29 @@ z_samples = 601
 
 model_spacing = 5.0
 
-model_file = ../inputs/models/model_vp_601x3401_5m.bin 
+model_file = ../../anisoModels/BP2D/models/BP2D_vp_601x3401_5m.bin 
 
 #------------------------------------------------------------
 # Geometry --------------------------------------------------
 #------------------------------------------------------------
 
-SPS = ../inputs/geometry/BP2D_streamer_SPS.txt 
-RPS = ../inputs/geometry/BP2D_streamer_RPS.txt 
-XPS = ../inputs/geometry/BP2D_streamer_XPS.txt 
+SPS = ../../anisoModels/BP2D/geometry/BP2D_streamer_SPS.txt 
+RPS = ../../anisoModels/BP2D/geometry/BP2D_streamer_RPS.txt 
+XPS = ../../anisoModels/BP2D/geometry/BP2D_streamer_XPS.txt 
 
 #------------------------------------------------------------
 # Modeling parameters ---------------------------------------
 #------------------------------------------------------------
 
-time_samples = 10001
+time_samples = 6001
 time_spacing = 5e-4
 
-max_frequency = 50.0
+max_frequency = 45.0
 
 abc_length = 1000
 abc_factor = 0.001 
 
-modeling_output_folder = ../outputs/data/
+mod_output_folder = ../outputs/data/
 
 #------------------------------------------------------------
 # Inversion parameters --------------------------------------

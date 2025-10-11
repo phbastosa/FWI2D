@@ -468,8 +468,8 @@ __global__ void random_boundary_gp(float * vp, float * X, float * Z, int nxx, in
         vp[i + j*nzz] += factor*A*expf(-0.5f*(((X[j]-xc)/r)*((X[j]-xc)/r) + 
                                               ((Z[i]-zc)/r)*((Z[i]-zc)/r)));
         
-        vp[i + j*nzz] = vp[i + j*nzz] > vmax + varVp ? vmax + varVp : vp[i + j*nzz];
-        vp[i + j*nzz] = vp[i + j*nzz] < vmin - varVp ? vmin - varVp : vp[i + j*nzz];         
+        vp[i + j*nzz] = vp[i + j*nzz] > vmax + 0.5f*varVp ? vmax + 0.5f*varVp : vp[i + j*nzz];
+        vp[i + j*nzz] = vp[i + j*nzz] < vmin - 0.5f*varVp ? vmin - 0.5f*varVp : vp[i + j*nzz];         
     }   
 }
 
