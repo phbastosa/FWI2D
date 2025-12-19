@@ -82,9 +82,8 @@ case "$1" in
 
 -clean)
 
-    rm *.png
-
     rm ../bin/*.exe
+    
     rm ../inputs/data/*.bin
     rm ../inputs/models/*.bin
     rm ../inputs/geometry/*.txt
