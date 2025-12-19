@@ -2,32 +2,32 @@
 # Model parameters ------------------------------------------
 #------------------------------------------------------------
 
-x_samples = 3401      
-z_samples = 601
+x_samples = 201      
+z_samples = 81
 
-model_spacing = 5.0
+model_spacing = 25.0
 
-model_file = ../../anisoModels/BP2D/models/BP2D_vp_601x3401_5m.bin 
+model_file = ../inputs/models/test_vp.bin 
 
 #------------------------------------------------------------
 # Geometry --------------------------------------------------
 #------------------------------------------------------------
 
-SPS = ../../anisoModels/BP2D/geometry/BP2D_streamer_SPS.txt 
-RPS = ../../anisoModels/BP2D/geometry/BP2D_streamer_RPS.txt 
-XPS = ../../anisoModels/BP2D/geometry/BP2D_streamer_XPS.txt 
+SPS = ../inputs/geometry/test_SPS.txt 
+RPS = ../inputs/geometry/test_RPS.txt 
+XPS = ../inputs/geometry/test_XPS.txt 
 
 #------------------------------------------------------------
 # Modeling parameters ---------------------------------------
 #------------------------------------------------------------
 
-time_samples = 6001
-time_spacing = 5e-4
+time_samples = 2001
+time_spacing = 2e-3
 
-max_frequency = 45.0
+max_frequency = 15.0
 
-abc_length = 1000
-abc_factor = 0.001 
+abc_length = 1250
+abc_factor = 0.005
 
 mod_output_folder = ../outputs/data/
 
@@ -37,7 +37,7 @@ mod_output_folder = ../outputs/data/
 
 inv_rbc_ratio = 200
 inv_rbc_varVp = 1000
-inv_rbc_length = 500
+inv_rbc_length = 800
 
 inversion_input_folder = ../inputs/data/
 inversion_output_folder = ../outputs/seismic/
@@ -46,11 +46,10 @@ inversion_output_folder = ../outputs/seismic/
 # Migration parameters --------------------------------------
 #------------------------------------------------------------
 
-mig_rbc_ratio = 100
+mig_rbc_ratio = 200
 mig_rbc_varVp = 1000
-mig_rbc_length = 500
+mig_rbc_length = 800
 
 mig_input_folder = ../inputs/data/
 mig_input_prefix = test_data_shot_
 mig_output_folder = ../outputs/seismic/
-
