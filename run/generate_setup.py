@@ -23,14 +23,14 @@ dt = float(pyf.catch_parameter(parameters, "time_spacing"))
 vp = np.array([1500, 1800, 2000])
 z = np.array([750, 1000])
 
-ns = 11
+ns = 6
 nr = 201
 
 SPS = np.zeros((ns, 2))
 RPS = np.zeros((nr, 2))
 XPS = np.zeros((ns, 3))
 
-SPS[:, 0] = np.linspace(500, 4500, ns) 
+SPS[:, 0] = np.linspace(1000, 4000, ns) 
 SPS[:, 1] = 100.0 
 
 RPS[:, 0] = np.linspace(0, 5000, nr)

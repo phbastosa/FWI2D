@@ -6,6 +6,12 @@
 
 # include "../geometry/geometry.hpp"
 
+# define FDM1 0.001785714285 
+# define FDM2 0.025396825396  
+# define FDM3 0.200000000000
+# define FDM4 1.600000000000
+# define FDM5 2.847222222222
+
 # define WIDTH 80
 # define NTHREADS 256
 
@@ -78,15 +84,15 @@ public:
     void forward_solver();
     void get_seismogram();
     void show_information();    
-    void export_output_data();
 };
 
-__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * wavelet, float * b1d, float * b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float dh, float dt, bool ABC);
+__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * wavelet, float * b1d, float * b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float idh2, float dt, bool ABC);
 __global__ void compute_seismogram(float * P, int * rIdx, int * rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz);
+
 __device__ float get_boundary_damper(float * b1d, float * b2d, int i, int j, int nxx, int nzz, int nb);
 
 __device__ float get_random_value(float velocity, float function, float parameter, int index);
 __global__ void random_boundary_bg(float * Vp, int nxx, int nzz, int nb, float varVp);
-__global__ void random_boundary_gp(float * Vp, float * X, float * Z, int nxx, int nzz, float x_max, float z_max, float xb, float zb, float factor, float A, float xc, float zc, float r, float vmax, float vmin, float varVp);
+__global__ void random_boundary_gp(float * Vp, float * X, float * Z, int nxx, int nzz, float x_max, float z_max, int nb, float dh, float factor, float A, float xc, float zc, float r, float vmax, float vmin, float varVp);
 
 # endif
