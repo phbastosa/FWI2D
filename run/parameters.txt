@@ -26,20 +26,26 @@ time_spacing = 1e-3                 # [s]
 max_frequency = 50.0                # [Hz]
 
 abc_length = 1250                   # [m]
-abc_factor = 0.0035
+abc_factor = 0.004
 
-mod_output_folder = ../outputs/data/
+mod_output_folder = ../inputs/data/obs_
 
 #------------------------------------------------------------
 # Inversion parameters --------------------------------------
 #------------------------------------------------------------
 
+max_iteration = 5
+
 inv_rbc_ratio = 200                 # [m]
 inv_rbc_varVp = 1000                # [m/s]
 inv_rbc_length = 900                # [m] 
 
-inversion_input_folder = ../inputs/data/
-inversion_output_folder = ../outputs/seismic/
+inv_dcal_folder = ../outputs/data/cal_
+inv_input_folder = ../inputs/data/
+inv_input_prefix = obs_seismogram_nt2001_nr51_1000us_shot_
+
+inv_output_folder = ../outputs/models/
+inv_residuo_folder = ../outputs/residuo/
 
 #------------------------------------------------------------
 # Migration parameters --------------------------------------

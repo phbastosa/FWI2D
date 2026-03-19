@@ -17,35 +17,29 @@ private:
     int abc_nxx, abc_nzz, abc_nb, abc_matsize;
     int rbc_nxx, rbc_nzz, rbc_nb, rbc_matsize;
 
-    float * vp = nullptr;
-    float * A1 = nullptr;
-    float * A2 = nullptr;
-
     float * sumPs = nullptr;
     float * partial = nullptr;    
     float * gradient = nullptr;
 
-    float * h_rbc_Vp = nullptr;
-    float * d_rbc_Vp = nullptr;
-
-    float * obs_data = nullptr;
-
-    float * d_Ps = nullptr;    
     float * d_Pr = nullptr;
-    float * d_Psold = nullptr;
     float * d_Prold = nullptr;
     float * d_sumPs = nullptr;
     float * d_gradient = nullptr;
 
     std::string stage_info;
-    
-    std::string model_file;
     std::string input_folder;
+    std::string input_prefix;
     std::string output_folder; 
     std::string residuo_folder; 
     
     std::vector<float> residuo;
     
+    void set_ABC_dimension();
+    void get_ABC_dimension();
+    
+    void set_RBC_dimension();
+    void get_RBC_dimension();
+
     void rbc_forward_solver();
     void set_seismic_source();
     void forward_propagation();
@@ -59,7 +53,6 @@ public:
     bool converged;
 
     void set_parameters();
-    void set_observed_data();
     void show_information();
     void check_convergence();
     void set_calculated_data();

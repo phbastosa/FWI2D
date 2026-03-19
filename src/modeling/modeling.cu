@@ -24,8 +24,6 @@ void Modeling::set_main_parameters()
     dt = std::stof(catch_parameter("time_spacing", parameters));
 
     fmax = std::stof(catch_parameter("max_frequency", parameters));
-    
-    data_folder = catch_parameter("mod_output_folder", parameters);
 }
 
 void Modeling::set_wavelet()
@@ -100,6 +98,8 @@ void Modeling::set_geometry()
 
 void Modeling::set_seismograms()
 {
+    data_folder = catch_parameter("mod_output_folder", parameters);
+
     sBlocks = (int)((geometry->nrec + NTHREADS - 1) / NTHREADS);
 
     seismogram = new float[nt*geometry->nrec]();
