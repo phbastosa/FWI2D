@@ -257,17 +257,13 @@ void Modeling::initialization()
     int * h_rIdx = new int[geometry->nrec]();
     int * h_rIdz = new int[geometry->nrec]();
 
-    int spreadId = 0;
-
     for (int recId = 0; recId < geometry->nrec; recId++)
     {
         float rx = geometry->xrec[recId];
         float rz = geometry->zrec[recId];
         
-        h_rIdx[spreadId] = (int)((rx + 0.5f*dh) / dh) + nb;
-        h_rIdz[spreadId] = (int)((rz + 0.5f*dh) / dh) + nb;
-
-        ++spreadId;
+        h_rIdx[recId] = (int)((rx + 0.5f*dh) / dh) + nb;
+        h_rIdz[recId] = (int)((rz + 0.5f*dh) / dh) + nb;
     }
 
     cudaMemcpy(d_rIdx, h_rIdx, geometry->nrec*sizeof(int), cudaMemcpyHostToDevice);
