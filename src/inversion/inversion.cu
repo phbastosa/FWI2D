@@ -30,14 +30,14 @@ void Inversion::set_parameters()
 
     vp = new float[nPoints]();
     
-    h_rbc_Vp = new float[rbc_matsize]();
-
     reduce_boundary(Vp, vp);
 
     nb = rbc_nb;
     nxx = rbc_nxx;
     nzz = rbc_nzz;
     matsize = rbc_matsize;
+
+    h_rbc_Vp = new float[rbc_matsize]();
 
     expand_boundary(vp, h_rbc_Vp);
 
@@ -47,14 +47,7 @@ void Inversion::set_parameters()
 
     max_iteration = std::stoi(catch_parameter("max_iteration", parameters));
 
-    alpha = std::stof(catch_parameter("alpha", parameters));
-    beta1 = std::stof(catch_parameter("beta1", parameters));
-    beta2 = std::stof(catch_parameter("beta2", parameters));
-
     iteration = 0;
-
-    A1 = new float[nPoints]();
-    A2 = new float[nPoints]();
 
     sumPs = new float[nPoints]();
     gradient = new float[nPoints]();

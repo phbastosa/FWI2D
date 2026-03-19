@@ -20,8 +20,8 @@ nr = len(RPS)
 folder = "../outputs/data/"
 
 gstd = 30
-velocity = 1450
-time_delay = 0.4
+velocity = 3500
+time_delay = 0.18
 
 timeId = np.arange(nt)
 
@@ -43,4 +43,6 @@ for sId in range(ns):
         
         data[:tId[rId], rId] *= np.exp(-0.5*((timeId - tId[rId]) / gstd)**2)[:tId[rId]]
 
-    data.flatten("F").astype(np.float32, order = "F").tofile(f"../inputs/data/test_data_shot_{sId+1}.bin")
+    data.flatten("F").astype(np.float32, order = "F").tofile(f"../inputs/data/mig_data_shot_{sId+1}.bin")
+
+

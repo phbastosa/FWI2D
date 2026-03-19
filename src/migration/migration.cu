@@ -50,10 +50,10 @@ void Migration::show_information()
     std::cout << "Model dimensions: (z = " << (nz - 1)*dh << 
                                   ", x = " << (nx - 1)*dh <<") m\n\n";
 
-    std::cout << "Running shot " << srcId + 1 << " of " << geometry->nrel << " in total\n\n";
+    std::cout << "Running shot " << srcId + 1 << " of " << geometry->nsrc << " in total\n\n";
 
-    std::cout << "Current shot position: (z = " << geometry->zsrc[geometry->sInd[srcId]] << 
-                                       ", x = " << geometry->xsrc[geometry->sInd[srcId]] << ") m\n\n";
+    std::cout << "Current shot position: (z = " << geometry->zsrc[srcId] << 
+                                       ", x = " << geometry->xsrc[srcId] << ") m\n\n";
 
     std::cout << line << "\n";
     std::cout << stage_info << std::endl;
@@ -87,7 +87,7 @@ void Migration::backward_propagation()
 
     for (int tId = 0; tId < nt + tlag; tId++)
     {
-        inject_seismogram<<<sBlocks, NTHREADS>>>(d_Pr, d_rIdx, d_rIdz, d_seismogram, geometry->spread, tId, nt, nzz, idh2);
+        inject_seismogram<<<sBlocks, NTHREADS>>>(d_Pr, d_rIdx, d_rIdz, d_seismogram, geometry->nrec, tId, nt, nzz, idh2);
 
         RTM<<<nBlocks, NTHREADS>>>(d_P, d_Pold, d_Pr, d_Prold, d_Vp, d_image, d_sumPs, nxx, nzz, idh2, dt);
     
@@ -99,8 +99,8 @@ void Migration::backward_propagation()
 void Migration::set_seismic_source()
 {
     std::string data_file = input_folder + input_prefix + std::to_string(srcId+1) + ".bin";
-    import_binary_float(data_file, seismogram, nt*geometry->spread);
-    cudaMemcpy(d_seismogram, seismogram, nt*geometry->spread*sizeof(float), cudaMemcpyHostToDevice);
+    import_binary_float(data_file, seismogram, nt*geometry->nrec);
+    cudaMemcpy(d_seismogram, seismogram, nt*geometry->nrec*sizeof(float), cudaMemcpyHostToDevice);
 }
 
 void Migration::export_seismic()
@@ -120,21 +120,21 @@ void Migration::export_seismic()
     {
         int i = (int)(index % nz);
 
+        sumPs[index] = 0.0f;    
+
         if((i > 0) && (i < nz-1)) 
             sumPs[index] = -1.0f*(image[index-1] - 2.0f*image[index] + image[index+1]) / (dh*dh);
-        else 
-            sumPs[index] = 0.0f;    
     }
 
     std::string output_file = output_folder + "RTM_section_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
     export_binary_float(output_file, sumPs, nPoints);
 }
 
-__global__ void inject_seismogram(float * Pr, int * rIdx, int * rIdz, float * seismogram, int spread, int tId, int nt, int nzz, float idh2)
+__global__ void inject_seismogram(float * Pr, int * rIdx, int * rIdz, float * seismogram, int nr, int tId, int nt, int nzz, float idh2)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if ((index < spread) && (tId < nt))
+    if ((index < nr) && (tId < nt))
     {
         int sId = (nt-tId-1) + index*nt;
         int wId = rIdz[index] + rIdx[index]*nzz;
@@ -152,29 +152,29 @@ __global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float 
     
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
-        float d2Ps_dx2 = idh2*(-FDM1*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
-                               +FDM2*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
-                               -FDM3*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
-                               +FDM4*(Psold[i + (j-1)*nzz] + Psold[i + (j+1)*nzz])
-                               -FDM5*(Psold[i + j*nzz]));
+        float d2Ps_dx2 = (-FDM1*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
+                          +FDM2*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
+                          -FDM3*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
+                          +FDM4*(Psold[i + (j-1)*nzz] + Psold[i + (j+1)*nzz])
+                          -FDM5*(Psold[i + j*nzz]))*idh2;
 
-        float d2Ps_dz2 = idh2*(-FDM1*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
-                               +FDM2*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
-                               -FDM3*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
-                               +FDM4*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
-                               -FDM5*(Psold[i + j*nzz]));
+        float d2Ps_dz2 = (-FDM1*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
+                          +FDM2*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
+                          -FDM3*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
+                          +FDM4*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
+                          -FDM5*(Psold[i + j*nzz]))*idh2;
         
-        float d2Pr_dx2 = idh2*(-FDM1*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
-                               +FDM2*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
-                               -FDM3*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
-                               +FDM4*(Pr[i + (j-1)*nzz] + Pr[i + (j+1)*nzz])
-                               -FDM5*(Pr[i + j*nzz]));
+        float d2Pr_dx2 = (-FDM1*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
+                          +FDM2*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
+                          -FDM3*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
+                          +FDM4*(Pr[i + (j-1)*nzz] + Pr[i + (j+1)*nzz])
+                          -FDM5*(Pr[i + j*nzz]))*idh2;
 
-        float d2Pr_dz2 = idh2*(-FDM1*(Pr[(i-4) + j*nzz] + Pr[(i+4) + j*nzz])
-                               +FDM2*(Pr[(i-3) + j*nzz] + Pr[(i+3) + j*nzz])
-                               -FDM3*(Pr[(i-2) + j*nzz] + Pr[(i+2) + j*nzz])
-                               +FDM4*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
-                               -FDM5*(Pr[i + j*nzz]));
+        float d2Pr_dz2 = (-FDM1*(Pr[(i-4) + j*nzz] + Pr[(i+4) + j*nzz])
+                          +FDM2*(Pr[(i-3) + j*nzz] + Pr[(i+3) + j*nzz])
+                          -FDM3*(Pr[(i-2) + j*nzz] + Pr[(i+2) + j*nzz])
+                          +FDM4*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
+                          -FDM5*(Pr[i + j*nzz]))*idh2;
         
         Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];    
 
