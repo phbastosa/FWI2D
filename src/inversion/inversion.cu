@@ -50,6 +50,7 @@ void Inversion::set_parameters()
     iteration = 0;
 
     sumPs = new float[nPoints]();
+    
     gradient = new float[nPoints]();
 
     partial = new float[rbc_matsize]();

@@ -10,10 +10,6 @@ private:
     int iteration;
     int max_iteration;
 
-    float alpha;
-    float beta1;
-    float beta2;
-
     float rbc_ratio;
     float rbc_varVp;
     float rbc_length; 
