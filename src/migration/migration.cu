@@ -83,8 +83,6 @@ void Migration::backward_propagation()
     cudaMemset(d_Pr, 0.0f, matsize*sizeof(float));
     cudaMemset(d_Prold, 0.0f, matsize*sizeof(float));
 
-    float idh2 = 1.0f / (dh*dh);
-
     for (int tId = 0; tId < nt + tlag; tId++)
     {
         inject_seismogram<<<sBlocks, NTHREADS>>>(d_Pr, d_rIdx, d_rIdz, d_seismogram, geometry->nrec, tId, nt, nzz, idh2);
@@ -123,7 +121,7 @@ void Migration::export_seismic()
         sumPs[index] = 0.0f;    
 
         if((i > 0) && (i < nz-1)) 
-            sumPs[index] = -1.0f*(image[index-1] - 2.0f*image[index] + image[index+1]) / (dh*dh);
+            sumPs[index] = -1.0f*(image[index-1] - 2.0f*image[index] + image[index+1]) * idh2;
     }
 
     std::string output_file = output_folder + "RTM_section_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";

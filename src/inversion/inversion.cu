@@ -6,20 +6,19 @@ void Inversion::set_parameters()
     
     set_main_parameters();
 
+    set_abc_dampers();
+
     set_wavelet();
     set_geometry();    
-    set_abc_dampers();    
+    set_properties();
     set_seismograms();
-    set_coordinates();
     
     set_ABC_dimension();
     set_RBC_dimension();
-    
-    get_ABC_dimension();
-    
-    set_properties();
+    get_RBC_dimension();
+    set_coordinates();
 
-    export_binary_float("Vp_" + std::to_string(nzz) + ".bin", Vp, matsize);
+    zmask = std::stof(catch_parameter("depth_mask", parameters));
 
     data_folder = catch_parameter("inv_dcal_folder", parameters);
     input_folder = catch_parameter("inv_input_folder", parameters);
@@ -31,14 +30,26 @@ void Inversion::set_parameters()
 
     iteration = 0;
 
-    sumPs = new float[nPoints]();
-    gradient = new float[nPoints]();
-    partial = new float[rbc_matsize]();
+    model = new float[nPoints]();
 
-    cudaMalloc((void**)&(d_Pr), rbc_matsize*sizeof(float));
-    cudaMalloc((void**)&(d_Prold), rbc_matsize*sizeof(float));
-    cudaMalloc((void**)&(d_sumPs), rbc_matsize*sizeof(float));
-    cudaMalloc((void**)&(d_gradient), rbc_matsize*sizeof(float));
+    partial1 = new float[nPoints]();
+    partial2 = new float[rbc_matsize]();
+
+    gradient = new float[nPoints]();
+    obs_data = new float[nt*geometry->nrec]();
+
+    set_initial_model();
+
+    cudaMalloc((void**)&(d_Vp_rbc), rbc_matsize*sizeof(float));
+    
+    cudaMalloc((void**)&(d_Ps_rbc), rbc_matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pr_rbc), rbc_matsize*sizeof(float));
+    
+    cudaMalloc((void**)&(d_Ps_old_rbc), rbc_matsize*sizeof(float));
+    cudaMalloc((void**)&(d_Pr_old_rbc), rbc_matsize*sizeof(float));
+    
+    cudaMalloc((void**)&(d_sumPs_rbc), rbc_matsize*sizeof(float));
+    cudaMalloc((void**)&(d_gradient_rbc), rbc_matsize*sizeof(float));
 }
 
 void Inversion::set_ABC_dimension()
@@ -52,10 +63,14 @@ void Inversion::set_ABC_dimension()
 
 void Inversion::get_ABC_dimension()
 {
+    ABC = true;
+
     nb = abc_nb;
     nxx = abc_nxx;
     nzz = abc_nzz;
     matsize = abc_matsize;
+
+    nBlocks = (int)((abc_matsize + NTHREADS - 1) / NTHREADS);
 }
 
 void Inversion::set_RBC_dimension()
@@ -73,29 +88,158 @@ void Inversion::set_RBC_dimension()
 
 void Inversion::get_RBC_dimension()
 {
+    ABC = false;
+
     nb = rbc_nb;
     nxx = rbc_nxx;
     nzz = rbc_nzz;
     matsize = rbc_matsize;
+
+    nBlocks = (int)((rbc_matsize + NTHREADS - 1) / NTHREADS);
 }
 
-void Inversion::set_calculated_data()
+void Inversion::set_initial_model()
 {
-    ABC = true;
-
     get_ABC_dimension();
+    reduce_boundary(Vp, model);
+    for (int index = 0; index < nPoints; index++)
+        model[index] = 1.0f / (model[index]*model[index]);
+}
 
-    nBlocks = (int)((matsize + NTHREADS - 1) / NTHREADS);
+void Inversion::compute_gradient()
+{
+    sum_res = 0;
 
-    stage_info = "Calculating seismograms to compute residuo...";
+    cudaMemset(d_gradient_rbc, 0.0f, rbc_matsize*sizeof(float));
 
+    if (iteration == max_iteration) ++iteration;
+    
     for (srcId = 0; srcId < geometry->nsrc; srcId++)
     {
-        show_information();
+        set_obs_data();
+        get_cal_data();
         
-        initialization();
-        forward_solver();
-        get_seismogram();
+        set_adjoint_source();
+
+        if (iteration <= max_iteration)
+        {
+            update_RBC();
+
+            initialization();
+            forward_propagation();
+            backward_propagation();
+        }
+    }
+
+    if (iteration == max_iteration) --iteration;
+    
+    residuo.push_back(sqrtf(sum_res));    
+
+    cudaMemcpy(partial2, d_gradient_rbc, rbc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
+    reduce_boundary(partial2, gradient);
+
+    cudaMemcpy(partial2, d_sumPs_rbc, rbc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
+    reduce_boundary(partial2, partial1);
+
+    for (int index = 0; index < nPoints; index++)
+        partial1[index] = gradient[index] / partial1[index];
+
+    float gmax = -1e9f;
+
+    for (int index = 0; index < nPoints; index++)
+    {
+        int i = (int)(index % nz);
+
+        gradient[index] = 0.0f;    
+
+        if((i > (int)(zmask/dh)) && (i < nz-1)) 
+            gradient[index] = -1.0f*(partial1[index-1] - 2.0f*partial1[index] + partial1[index+1]) * idh2;
+    
+        gmax = gmax < fabsf(gradient[index]) ? fabsf(gradient[index]) : gmax; 
+    }
+
+    for (int index = 0; index < nPoints; index++)
+        gradient[index] *= 1.0f / gmax;
+}
+
+void Inversion::set_obs_data()
+{
+    std::string data_file = input_folder + input_prefix + std::to_string(srcId+1) + ".bin";
+    import_binary_float(data_file, obs_data, nt*geometry->nrec);
+}
+
+void Inversion::get_cal_data()
+{
+    stage_info = "Computing sinthetic data";
+
+    get_ABC_dimension();
+    show_information();
+
+    initialization();
+    forward_solver();
+}
+
+void Inversion::set_adjoint_source()
+{
+    cudaMemcpy(seismogram, d_seismogram, nt*geometry->nrec*sizeof(float), cudaMemcpyDeviceToHost);
+
+    for (int index = 0; index < nt*geometry->nrec; index++)
+    {
+        seismogram[index] = obs_data[index] - seismogram[index];
+        sum_res += seismogram[index]*seismogram[index];
+    }    
+
+    cudaMemcpy(d_seismogram, seismogram, nt*geometry->nrec*sizeof(float), cudaMemcpyHostToDevice);
+}
+
+void Inversion::update_RBC()
+{
+    cudaMemcpy(Vp, d_Vp, abc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
+
+    get_ABC_dimension();
+    reduce_boundary(Vp, partial1);
+    get_RBC_dimension();
+    expand_boundary(partial1, partial2);
+
+    cudaMemcpy(d_Vp_rbc, partial2, rbc_matsize*sizeof(float), cudaMemcpyHostToDevice);
+
+    set_random_boundary(d_Vp_rbc, rbc_ratio, rbc_varVp);
+}
+
+void Inversion::forward_propagation()
+{
+    stage_info = "Wavefield reconstruction: forward propagation";
+
+    show_information();
+
+    cudaMemset(d_Ps_rbc, 0.0f, rbc_matsize*sizeof(float));
+    cudaMemset(d_Ps_old_rbc, 0.0f, rbc_matsize*sizeof(float));
+
+    for (int tId = 0; tId < tlag + nt; tId++)
+    {
+        compute_pressure<<<nBlocks,NTHREADS>>>(d_Vp_rbc, d_Ps_rbc, d_Ps_old_rbc, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, idh2, dt, ABC);
+
+        std::swap(d_Ps_rbc, d_Ps_old_rbc);
+    }    
+}
+
+void Inversion::backward_propagation()
+{
+    stage_info = "Wavefield reconstruction: backward propagation";
+
+    show_information();
+    
+    cudaMemset(d_Pr_rbc, 0.0f, rbc_matsize*sizeof(float));
+    cudaMemset(d_Pr_old_rbc, 0.0f, rbc_matsize*sizeof(float));
+
+    for (int tId = 0; tId < nt + tlag; tId++)
+    {
+        inject_adjoint<<<sBlocks,NTHREADS>>>(d_Pr_rbc, d_rIdx, d_rIdz, d_seismogram, geometry->nrec, tId, nt, nzz, idh2);
+
+        build_gradient<<<nBlocks,NTHREADS>>>(d_Ps_rbc, d_Ps_old_rbc, d_Pr_rbc, d_Pr_old_rbc, d_Vp_rbc, d_gradient_rbc, d_sumPs_rbc, nxx, nzz, nt, dt, idh2);
+    
+        std::swap(d_Ps_rbc, d_Ps_old_rbc);
+        std::swap(d_Pr_rbc, d_Pr_old_rbc);
     }
 }
 
@@ -123,231 +267,160 @@ void Inversion::show_information()
     std::cout << stage_info << "\n";
     std::cout << line << "\n\n";
 
-    if (!ABC)
-    {
-        if (iteration >= max_iteration)
-        {
-            std::cout << "Checking final residuals\n\n";
-        }
-        else
-        {    
-            std::cout << "Computing iteration " << iteration + 1 << " of " << max_iteration << "\n\n";
-
-            if (iteration > 0) std::cout << "Previous residuals: " << residuo.back() << "\n";   
-        }
+    if (iteration > max_iteration) 
+        std::cout << "-------- Checking final residuo --------\n\n";
+    else
+    {    
+        std::cout << "-------- Computing iteration " << iteration+1 << " of " << max_iteration << " --------\n\n";
+        
+        if (iteration > 0) std::cout << "Previous residuo: " << residuo.back() << "\n\n";   
     }
 }
 
 void Inversion::check_convergence()
 {
-    // float square_difference = 0.0f;
-
-    // for (int index = 0; index < nt*geometry->nTraces; index++)
-    // {
-    //     seismic_data[index] = obs_data[index] - seismic_data[index];
-    //     square_difference += seismic_data[index]*seismic_data[index];
-    // }
-
-    // residuo.push_back(sqrtf(square_difference));
-
-    // if ((iteration >= max_iteration))
-    // {
-    //     std::cout << "Final residuals: "<< residuo.back() <<"\n";
-    //     converged = true;
-    // }
-    // else
-    // {
-    //     iteration += 1;
-    //     converged = false;
-    // }
-}
-
-void Inversion::compute_gradient()
-{
-    // ABC = false;
-
-    // nb = rbc_nb;
-    // nxx = rbc_nxx;
-    // nzz = rbc_nzz;
-    // matsize = rbc_matsize;
-
-    // nBlocks = (int)((matsize + NTHREADS - 1) / NTHREADS);
-
-    // cudaMemset(d_gradient, 0.0f, rbc_matsize*sizeof(float));
-
-    // for (srcId = 0; srcId < geometry->nrel; srcId++)
-    // {
-    //     forward_propagation();
-    //     backward_propagation();
-    // }
-}
-
-void Inversion::forward_propagation()
-{
-    // stage_info = "Calculating gradient of the objective function ---> Forward propagation.";
-
-    // show_information();
-
-    // initialization();
-    // rbc_forward_solver();
-}
-
-void Inversion::rbc_forward_solver()
-{
-    // cudaMemset(d_Ps, 0.0f, rbc_matsize*sizeof(float));
-    // cudaMemset(d_Psold, 0.0f, rbc_matsize*sizeof(float));
-
-    // set_random_boundary(d_rbc_Vp, rbc_ratio, rbc_varVp);
-
-    // for (int tId = 0; tId < tlag + nt; tId++)
-    // {
-    //     compute_pressure<<<nBlocks,NTHREADS>>>(d_rbc_Vp, d_Ps, d_Psold, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, dh, dt, ABC);
-
-    //     std::swap(d_Ps, d_Psold);
-    // }
-}
-
-void Inversion::backward_propagation()
-{
-    // stage_info = "Calculating gradient of the objective function ---> Backward propagation.";
-
-    // show_information();
-
-    // initialization();
+    ++iteration;
     
-    // set_seismic_source();
+    converged = (iteration > max_iteration) ? true : false;
 
-    // cudaMemset(d_Pr, 0.0f, rbc_matsize*sizeof(float));
-    // cudaMemset(d_Prold, 0.0f, rbc_matsize*sizeof(float));
-
-    // for (int tId = 0; tId < nt + tlag; tId++)
-    // {
-    //     FWI<<<nBlocks,NTHREADS>>>(d_Ps, d_Psold, d_Pr, d_Prold, d_rbc_Vp, d_seismogram, d_gradient, d_sumPs, d_rIdx, d_rIdz, geometry->spread, tId, tlag, nxx, nzz, nt, dh, dt);
-    
-    //     std::swap(d_Ps, d_Psold);
-    //     std::swap(d_Pr, d_Prold);
-    // }
-}
-
-void Inversion::set_seismic_source()
-{
-    // for (int timeId = 0; timeId < nt; timeId++)
-    //     for (int spreadId = 0; spreadId < geometry->spread; spreadId++)
-    //         seismogram[timeId + spreadId*nt] = seismic_data[timeId + spreadId*nt + srcId*geometry->spread*nt];     
-
-    // cudaMemcpy(d_seismogram, seismogram, nt*geometry->spread*sizeof(float), cudaMemcpyHostToDevice);
+    if (converged) std::cout << "Final residuo: "<< residuo.back() <<"\n\n";  
 }
 
 void Inversion::optimization()
 {
-    // stage_info = "Optimizing problem with ";
+    float dm = (1.0f / (vmin*vmin)) - (1.0f / (vmax*vmax));
 
-    // cudaMemcpy(partial, d_gradient, rbc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
-    // reduce_boundary(partial, gradient);
+    float a0 = 0.00f*dm;
+    float a1 = 0.02f*dm;
+    float a2 = 0.05f*dm;
 
-    // cudaMemcpy(partial, d_sumPs, rbc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
-    // reduce_boundary(partial, sumPs);
+    float f0 = residuo.back();
 
-    // # pragma omp parallel for
-    // for (int index = 0; index < nPoints; index++)
-    // {
-    //     int i = (int)(index % nz);
-    //     int j = (int)(index / nz);
+    stage_info = "Optimization via parabolic linesearch: first modeling";
 
-    //     gradient[index] /= sumPs[index];
+    linesearch(a1); float f1 = sqrtf(sum_res);
 
-    //     A1[index] = beta1*A1[index] + (1.0f - beta1)*gradient[index];
-    //     A2[index] = beta2*A2[index] + (1.0f - beta2)*gradient[index]*gradient[index];
+    stage_info = "Optimization via parabolic linesearch: final modeling";
+    
+    linesearch(a2); float f2 = sqrtf(sum_res);
+
+    float num = (a1*a1 - a2*a2)*f0 + (a2*a2 - a0*a0)*f1 + (a0*a0 - a1*a1)*f2;    
+    float den = (a1 - a2)*f0 + (a2 - a0)*f1 + (a0 - a1)*f2;
+
+    step = 0.5f*(num / den);
+}
+
+void Inversion::linesearch(float alpha)
+{
+    for (int index = 0; index < nPoints; index++)
+    {
+        partial1[index] = model[index] - alpha*gradient[index];
+        partial1[index] = 1.0f / sqrtf(partial1[index]);
+    }
+
+    get_ABC_dimension();
+    expand_boundary(partial1, Vp);
+
+    cudaMemcpy(d_Vp, Vp, abc_matsize*sizeof(float), cudaMemcpyHostToDevice);
+
+    sum_res = 0.0f;
+
+    for (srcId = 0; srcId < geometry->nsrc; srcId++)    
+    {
+        set_obs_data();
+
+        show_information();
+
+        initialization();
+        forward_solver();
         
-    //     float A1_hat = A1[index] / (1.0f - beta1);
-    //     float A2_hat = A2[index] / (1.0f - beta2);     
-
-    //     float m = 1.0f / Vp[(i + abc_nb) + (j + abc_nb)*abc_nzz];
-
-    //     vp[index] = 1.0f /(m - alpha*A1_hat/(sqrtf(A2_hat) + 1e-8f));
-    // }
+        cudaMemcpy(seismogram, d_seismogram, nt*geometry->nrec*sizeof(float), cudaMemcpyDeviceToHost);
+        
+        for (int index = 0; index < nt*geometry->nrec; index++)
+        {    
+            seismogram[index] = obs_data[index] - seismogram[index];
+            sum_res += seismogram[index]*seismogram[index];
+        }
+    }
 }
 
 void Inversion::update_model()
 {
-    // stage_info = "Updating model ...";
+    for (int index = 0; index < nPoints; index++)
+    {
+        model[index] = model[index] - step*gradient[index];
+        partial1[index] = 1.0f / sqrtf(model[index]);
+    }
 
-    // expand_boundary(vp, h_rbc_Vp);
-    // cudaMemcpy(d_rbc_Vp, h_rbc_Vp, rbc_matsize*sizeof(float), cudaMemcpyHostToDevice);
-
-    // nb = abc_nb;
-    // nxx = abc_nxx;
-    // nzz = abc_nzz;
-    // matsize = abc_matsize;
-
-    // expand_boundary(vp, Vp);
-    // cudaMemcpy(d_Vp, Vp, abc_matsize*sizeof(float), cudaMemcpyHostToDevice);
+    expand_boundary(partial1, Vp);
 }
 
 void Inversion::export_convergence()
 {
-    // std::string residuo_path = residuo_folder + "convergence_" + std::to_string(iteration) + "_iterations.txt"; 
+    std::string residuo_path = residuo_folder + "convergence_" + std::to_string(max_iteration) + "_iterations.txt"; 
 
-    // std::ofstream resFile(residuo_path, std::ios::out);
+    std::ofstream resFile(residuo_path, std::ios::out);
     
-    // for (int r = 0; r < residuo.size(); r++) 
-    //     resFile << residuo[r] << "\n";
+    for (int r = 0; r < max_iteration; r++) 
+        resFile << residuo[r] << "\n";
 
-    // resFile.close();
+    resFile.close();
 
-    // std::cout << "Text file \033[34m" << residuo_path << "\033[0;0m was successfully written." << std::endl;
+    std::cout << "Text file \033[34m" << residuo_path << "\033[0;0m was successfully written." << std::endl;
 }
 
 void Inversion::export_final_model()
 {
-    // model_file = output_folder + "model_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
-
-    // nb = rbc_nb;
-    // nxx = rbc_nxx;
-    // nzz = rbc_nzz;
-    // matsize = rbc_matsize;
-
-    // cudaMemcpy(partial, d_rbc_Vp, matsize*sizeof(float), cudaMemcpyDeviceToHost);    
-    // reduce_boundary(partial, vp);
-    // export_binary_float(model_file, vp, nPoints);
+    std::string model_file = output_folder + "model_FWI_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
+    reduce_boundary(Vp, partial1);
+    export_binary_float(model_file, partial1, nPoints);
 }
 
-__global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int tlag, int nxx, int nzz, int nt, float dh, float dt)
+__global__ void inject_adjoint(float * Pr, int * rIdx, int * rIdz, float * seismogram, int nr, int tId, int nt, int nzz, float idh2)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if ((index < nr) && (tId < nt))
+    {
+        int sId = (nt-tId-1) + index*nt;
+        int wId = rIdz[index] + rIdx[index]*nzz;
+
+        atomicAdd(&Pr[wId], idh2*seismogram[sId]);
+    }
+}
+
+__global__ void build_gradient(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * gradient, float * sumPs, int nxx, int nzz, int nt, float dt, float idh2)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
     int i = (int)(index % nzz);
     int j = (int)(index / nzz);
 
-    if ((index == 0) && (tId < nt))
-        for (int rId = 0; rId < spread; rId++)
-            Pr[rIdz[rId] + rIdx[rId]*nzz] += seismogram[(nt-tId-1) + rId*nt] / (dh*dh); 
-
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
-        float d2Ps_dx2 = (- 9.0f*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
-                      +   128.0f*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
-                      -  1008.0f*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
-                      +  8064.0f*(Psold[i + (j+1)*nzz] + Psold[i + (j-1)*nzz])
-                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
+        float d2Ps_dx2 = (-FDM1*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
+                          +FDM2*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
+                          -FDM3*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
+                          +FDM4*(Psold[i + (j-1)*nzz] + Psold[i + (j+1)*nzz])
+                          -FDM5*(Psold[i + j*nzz]))*idh2;
 
-        float d2Ps_dz2 = (- 9.0f*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
-                      +   128.0f*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
-                      -  1008.0f*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
-                      +  8064.0f*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
-                      - 14350.0f*(Psold[i + j*nzz]))/(5040.0f*dh*dh);
+        float d2Ps_dz2 = (-FDM1*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
+                          +FDM2*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
+                          -FDM3*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
+                          +FDM4*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
+                          -FDM5*(Psold[i + j*nzz]))*idh2;
         
-        float d2Pr_dx2 = (- 9.0f*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
-                      +   128.0f*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
-                      -  1008.0f*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
-                      +  8064.0f*(Pr[i + (j+1)*nzz] + Pr[i + (j-1)*nzz])
-                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
+        float d2Pr_dx2 = (-FDM1*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
+                          +FDM2*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
+                          -FDM3*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
+                          +FDM4*(Pr[i + (j-1)*nzz] + Pr[i + (j+1)*nzz])
+                          -FDM5*(Pr[i + j*nzz]))*idh2;
 
-        float d2Pr_dz2 = (- 9.0f*(Pr[(i-4) + j*nzz] + Pr[(i+4) + j*nzz])
-                      +   128.0f*(Pr[(i-3) + j*nzz] + Pr[(i+3) + j*nzz])
-                      -  1008.0f*(Pr[(i-2) + j*nzz] + Pr[(i+2) + j*nzz])
-                      +  8064.0f*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
-                      - 14350.0f*(Pr[i + j*nzz]))/(5040.0f*dh*dh);
+        float d2Pr_dz2 = (-FDM1*(Pr[(i-4) + j*nzz] + Pr[(i+4) + j*nzz])
+                          +FDM2*(Pr[(i-3) + j*nzz] + Pr[(i+3) + j*nzz])
+                          -FDM3*(Pr[(i-2) + j*nzz] + Pr[(i+2) + j*nzz])
+                          +FDM4*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
+                          -FDM5*(Pr[i + j*nzz]))*idh2;
         
         Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];    
 

@@ -24,7 +24,7 @@ protected:
     float abc_length;
     float abc_factor;
     float vmax, vmin;
-    float dh, dt, fmax;
+    float dh, dt, fmax, idh2;
 
     std::string title;
     

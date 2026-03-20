@@ -41,7 +41,9 @@ m_true = np.fromfile(model_file, dtype = np.float32, count = nx*nz).reshape([nz,
 vmin = np.min(m_true)
 vmax = np.max(m_true)
 
-m_init = 1.0 / gaussian_filter(1.0 / m_true, 5.0)
+m_init = m_true.copy()
+
+m_init[15:] = 1.0 / gaussian_filter(1.0 / m_true[15:], 3.0)
 
 m_init.flatten("F").astype(np.float32, order = "F").tofile(model_file.replace("true", "init"))
 

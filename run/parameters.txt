@@ -13,8 +13,8 @@ model_file = ../inputs/models/overthrust_true_81x201_25m.bin
 # Geometry --------------------------------------------------
 #------------------------------------------------------------
 
-SPS = ../inputs/geometry/marmousi2_SPS.txt 
-RPS = ../inputs/geometry/marmousi2_RPS.txt 
+SPS = ../inputs/geometry/overthrust_SPS.txt 
+RPS = ../inputs/geometry/overthrust_RPS.txt 
 
 #------------------------------------------------------------
 # Modeling parameters ---------------------------------------
@@ -34,11 +34,13 @@ mod_output_folder = ../inputs/data/obs_
 # Inversion parameters --------------------------------------
 #------------------------------------------------------------
 
-max_iteration = 5
+max_iteration = 10
+
+depth_mask = 750                    # [m] 
 
 inv_rbc_ratio = 200                 # [m]
 inv_rbc_varVp = 1000                # [m/s]
-inv_rbc_length = 900                # [m] 
+inv_rbc_length = 1000               # [m] 
 
 inv_dcal_folder = ../outputs/data/cal_
 inv_input_folder = ../inputs/data/
@@ -53,7 +55,7 @@ inv_residuo_folder = ../outputs/residuo/
 
 mig_rbc_ratio = 200                 # [m]
 mig_rbc_varVp = 1000                # [m/s]
-mig_rbc_length = 900                # [m] 
+mig_rbc_length = 1000               # [m] 
 
 mig_input_folder = ../inputs/data/
 mig_input_prefix = mig_data_shot_

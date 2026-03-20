@@ -6,11 +6,12 @@ void Modeling::set_parameters()
 
     set_main_parameters();
 
+    set_abc_dampers();
+
     set_wavelet();
     set_geometry();    
-    set_seismograms();
-    set_abc_dampers();
     set_properties();
+    set_seismograms();
 }
 
 void Modeling::set_main_parameters()
@@ -24,6 +25,8 @@ void Modeling::set_main_parameters()
     dt = std::stof(catch_parameter("time_spacing", parameters));
 
     fmax = std::stof(catch_parameter("max_frequency", parameters));
+
+    idh2 = 1.0f / (dh*dh);
 }
 
 void Modeling::set_wavelet()
@@ -114,7 +117,7 @@ void Modeling::set_abc_dampers()
     abc_length = std::stof(catch_parameter("abc_length", parameters));
     abc_factor = std::stof(catch_parameter("abc_factor", parameters));
 
-    nb = (int)(abc_length / dh) + 4;
+    nb = (int)(abc_length / dh) + 1;
 
     float * b1d = new float[nb]();
     float * b2d = new float[nb*nb]();
@@ -285,8 +288,6 @@ void Modeling::forward_solver()
     cudaMemset(d_P, 0.0f, matsize*sizeof(float));
     cudaMemset(d_Pold, 0.0f, matsize*sizeof(float));
 
-    float idh2 = 1.0f / (dh*dh);
-
     for (int tId = 0; tId < nt + tlag; tId++)
     {
         compute_pressure<<<nBlocks, NTHREADS>>>(d_Vp, d_P, d_Pold, d_wavelet, d_b1d, d_b2d, sIdx, sIdz, tId, nt, nb, nxx, nzz, idh2, dt, ABC);
@@ -444,10 +445,10 @@ void Modeling::set_random_boundary(float * Vp, float ratio, float varVp)
         int xId = (int)(xc / dh);
         int zId = (int)(zc / dh);
 
-        float r = std::uniform_real_distribution<float>(0.5f*ratio, ratio)(RBC_RNG);
+        float r = std::uniform_real_distribution<float>(0.2f*ratio, ratio)(RBC_RNG);
         float A = std::uniform_real_distribution<float>(0.5f*varVp, varVp)(RBC_RNG);
 
-        float factor = rand() % 2 == 0 ? -1.0f : 1.0f;
+        float factor = rand() % 3 == 0 ? 1.0f : -1.0f;
 
         random_boundary_gp<<<nBlocks,NTHREADS>>>(Vp, d_X, d_Z, nxx, nzz, x_max, z_max, nb, dh, factor, A, xc, zc, r, vmax, vmin, varVp);
     }
@@ -468,8 +469,8 @@ __global__ void random_boundary_gp(float * Vp, float * X, float * Z, int nxx, in
         Vp[i + j*nzz] += factor*A*expf(-0.5f*(((X[j]-xc)/r)*((X[j]-xc)/r) + 
                                               ((Z[i]-zc)/r)*((Z[i]-zc)/r)));
         
-        Vp[i + j*nzz] = Vp[i + j*nzz] > vmax + 0.5f*varVp ? vmax + 0.5f*varVp : Vp[i + j*nzz];
-        Vp[i + j*nzz] = Vp[i + j*nzz] < vmin - 0.5f*varVp ? vmin - 0.5f*varVp : Vp[i + j*nzz];         
+        Vp[i + j*nzz] = Vp[i + j*nzz] > vmax + varVp ? vmax + varVp : Vp[i + j*nzz];
+        Vp[i + j*nzz] = Vp[i + j*nzz] < vmin - varVp ? vmin - varVp : Vp[i + j*nzz];         
     }   
 }
 

@@ -7,6 +7,10 @@ class Inversion : public Modeling
 {
 private:
 
+    float step;
+    float zmask;
+    float sum_res;
+
     int iteration;
     int max_iteration;
 
@@ -17,14 +21,23 @@ private:
     int abc_nxx, abc_nzz, abc_nb, abc_matsize;
     int rbc_nxx, rbc_nzz, rbc_nb, rbc_matsize;
 
-    float * sumPs = nullptr;
-    float * partial = nullptr;    
-    float * gradient = nullptr;
+    float * model = nullptr;
 
-    float * d_Pr = nullptr;
-    float * d_Prold = nullptr;
-    float * d_sumPs = nullptr;
-    float * d_gradient = nullptr;
+    float * partial1 = nullptr;    
+    float * partial2 = nullptr;    
+    float * gradient = nullptr;
+    float * obs_data = nullptr;
+
+    float * d_Vp_rbc = nullptr;
+
+    float * d_Ps_rbc = nullptr;
+    float * d_Pr_rbc = nullptr;
+
+    float * d_Ps_old_rbc = nullptr;
+    float * d_Pr_old_rbc = nullptr;
+
+    float * d_sumPs_rbc = nullptr;
+    float * d_gradient_rbc = nullptr;
 
     std::string stage_info;
     std::string input_folder;
@@ -34,29 +47,35 @@ private:
     
     std::vector<float> residuo;
     
+    void show_information();
+
     void set_ABC_dimension();
     void get_ABC_dimension();
     
     void set_RBC_dimension();
     void get_RBC_dimension();
 
-    void rbc_forward_solver();
-    void set_seismic_source();
+    void set_initial_model();
+
+    void update_RBC();
+    void set_obs_data();
+    void get_cal_data();
+
+    void set_adjoint_source();
     void forward_propagation();
     void backward_propagation();
 
-public:
+    void linesearch(float alpha);
 
-    int freqId;
-    int nFreqs;
+public:
 
     bool converged;
 
     void set_parameters();
-    void show_information();
-    void check_convergence();
-    void set_calculated_data();
+
     void compute_gradient();
+    void check_convergence();
+
     void optimization();
     void update_model();
 
@@ -64,6 +83,7 @@ public:
     void export_convergence();
 };
 
-__global__ void FWI(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * seismogram, float * gradient, float * sumPs, int * rIdx, int * rIdz, int spread, int tId, int tlag, int nxx, int nzz, int nt, float dh, float dt);
+__global__ void inject_adjoint(float * Pr, int * rIdx, int * rIdz, float * seismogram, int nr, int tId, int nt, int nzz, float idh2);
+__global__ void build_gradient(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * gradient, float * sumPs, int nxx, int nzz, int nt, float dt, float idh2);
 
 # endif
