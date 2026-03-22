@@ -271,7 +271,7 @@ void Inversion::show_information()
         std::cout << "-------- Checking final residuo --------\n\n";
     else
     {    
-        std::cout << "-------- Computing iteration " << iteration+1 << " of " << max_iteration << " --------\n\n";
+        std::cout << "-------- Computing iteration " << iteration << " of " << max_iteration << " --------\n\n";
         
         if (iteration > 0) std::cout << "Previous residuo: " << residuo.back() << "\n\n";   
     }
