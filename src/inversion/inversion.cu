@@ -102,6 +102,8 @@ void Inversion::set_initial_model()
 {
     get_ABC_dimension();
     reduce_boundary(Vp, model);
+
+    # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
         model[index] = 1.0f / (model[index]*model[index]);
 }
@@ -133,19 +135,19 @@ void Inversion::compute_gradient()
 
     if (iteration == max_iteration) --iteration;
     
-    residuo.push_back(sqrtf(sum_res));    
-
     cudaMemcpy(partial2, d_gradient_rbc, rbc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
     reduce_boundary(partial2, gradient);
 
     cudaMemcpy(partial2, d_sumPs_rbc, rbc_matsize*sizeof(float), cudaMemcpyDeviceToHost);
     reduce_boundary(partial2, partial1);
 
+    # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
         partial1[index] = gradient[index] / partial1[index];
 
     float gmax = -1e9f;
 
+    # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
     {
         int i = (int)(index % nz);
@@ -158,6 +160,7 @@ void Inversion::compute_gradient()
         gmax = gmax < fabsf(gradient[index]) ? fabsf(gradient[index]) : gmax; 
     }
 
+    # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
         gradient[index] *= 1.0f / gmax;
 }
@@ -172,8 +175,9 @@ void Inversion::get_cal_data()
 {
     stage_info = "Computing sinthetic data";
 
+    show_inv_info();
+
     get_ABC_dimension();
-    show_information();
 
     initialization();
     forward_solver();
@@ -210,7 +214,7 @@ void Inversion::forward_propagation()
 {
     stage_info = "Wavefield reconstruction: forward propagation";
 
-    show_information();
+    show_inv_info();
 
     cudaMemset(d_Ps_rbc, 0.0f, rbc_matsize*sizeof(float));
     cudaMemset(d_Ps_old_rbc, 0.0f, rbc_matsize*sizeof(float));
@@ -227,7 +231,7 @@ void Inversion::backward_propagation()
 {
     stage_info = "Wavefield reconstruction: backward propagation";
 
-    show_information();
+    show_inv_info();
     
     cudaMemset(d_Pr_rbc, 0.0f, rbc_matsize*sizeof(float));
     cudaMemset(d_Pr_old_rbc, 0.0f, rbc_matsize*sizeof(float));
@@ -243,25 +247,11 @@ void Inversion::backward_propagation()
     }
 }
 
-void Inversion::show_information()
+void Inversion::show_inv_info()
 {
-    auto clear = system("clear");
-
-    padding = (WIDTH - title.length() + 8) / 2;
+    show_information();
 
     std::string line(WIDTH, '-');
-
-    std::cout << line << '\n';
-    std::cout << std::string(padding, ' ') << title << '\n';
-    std::cout << line << "\n\n";
-    
-    std::cout << "Model dimensions: (z = " << (nz - 1)*dh << 
-                                  ", x = " << (nx - 1)*dh <<") m\n\n";
-
-    std::cout << "Running shot " << srcId + 1 << " of " << geometry->nsrc << " in total\n\n";
-
-    std::cout << "Current shot position: (z = " << geometry->zsrc[srcId] << 
-                                       ", x = " << geometry->xsrc[srcId] << ") m\n\n";
 
     std::cout << line << "\n";
     std::cout << stage_info << "\n";
@@ -271,9 +261,14 @@ void Inversion::show_information()
         std::cout << "-------- Checking final residuo --------\n\n";
     else
     {    
-        std::cout << "-------- Computing iteration " << iteration << " of " << max_iteration << " --------\n\n";
-        
-        if (iteration > 0) std::cout << "Previous residuo: " << residuo.back() << "\n\n";   
+        if (iteration == 0) 
+            std::cout << "-------- Computing first residuo --------\n";        
+        else
+        {
+            std::cout << "-------- Computing iteration " << iteration << " of " << max_iteration << " --------\n\n";
+            
+            std::cout << "Previous residuo: " << residuo.back() << "\n\n";   
+        }
     }
 }
 
@@ -281,6 +276,8 @@ void Inversion::check_convergence()
 {
     ++iteration;
     
+    residuo.push_back(sqrtf(sum_res));    
+
     converged = (iteration > max_iteration) ? true : false;
 
     if (converged) std::cout << "Final residuo: "<< residuo.back() <<"\n\n";  
@@ -329,7 +326,7 @@ void Inversion::linesearch(float alpha)
     {
         set_obs_data();
 
-        show_information();
+        show_inv_info();
 
         initialization();
         forward_solver();
@@ -346,6 +343,7 @@ void Inversion::linesearch(float alpha)
 
 void Inversion::update_model()
 {
+    # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
     {
         model[index] = model[index] - step*gradient[index];
@@ -371,7 +369,7 @@ void Inversion::export_convergence()
 
 void Inversion::export_final_model()
 {
-    std::string model_file = output_folder + "model_FWI_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
+    std::string model_file = output_folder + "model_FWI_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(dh)) + ".bin";
     reduce_boundary(Vp, partial1);
     export_binary_float(model_file, partial1, nPoints);
 }
@@ -426,8 +424,7 @@ __global__ void build_gradient(float * Ps, float * Psold, float * Pr, float * Pr
 
         Prold[index] = dt*dt*Vp[index]*Vp[index]*(d2Pr_dx2 + d2Pr_dz2) + 2.0f*Pr[index] - Prold[index];
 
-        gradient[index] += dt*Pr[index]*(d2Ps_dx2 + d2Ps_dz2)*Vp[index]*Vp[index];   
-
-        sumPs[index] += Ps[index]*Ps[index];
+        atomicAdd(&sumPs[index], Ps[index]*Ps[index]);
+        atomicAdd(&gradient[index], dt*Pr[index]*(d2Ps_dx2 + d2Ps_dz2)*Vp[index]*Vp[index]);
     }
 }

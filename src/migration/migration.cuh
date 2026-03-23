@@ -25,7 +25,8 @@ private:
     std::string input_prefix;
     std::string output_folder;
     
-    void show_information();
+    void show_mig_info();
+    
     void set_seismic_source();
 
 public:

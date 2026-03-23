@@ -47,8 +47,6 @@ private:
     
     std::vector<float> residuo;
     
-    void show_information();
-
     void set_ABC_dimension();
     void get_ABC_dimension();
     
@@ -60,6 +58,7 @@ private:
     void update_RBC();
     void set_obs_data();
     void get_cal_data();
+    void show_inv_info();
 
     void set_adjoint_source();
     void forward_propagation();

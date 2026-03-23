@@ -35,25 +35,11 @@ void Migration::set_parameters()
     cudaMemset(d_sumPs, 0.0f, matsize*sizeof(float));
 }
 
-void Migration::show_information()
+void Migration::show_mig_info()
 {
-    auto clear = system("clear");
-
-    padding = (WIDTH - title.length() + 8) / 2;
+    show_information();
 
     std::string line(WIDTH, '-');
-
-    std::cout << line << "\n";
-    std::cout << std::string(padding, ' ') << title << '\n';
-    std::cout << line << "\n\n";
-
-    std::cout << "Model dimensions: (z = " << (nz - 1)*dh << 
-                                  ", x = " << (nx - 1)*dh <<") m\n\n";
-
-    std::cout << "Running shot " << srcId + 1 << " of " << geometry->nsrc << " in total\n\n";
-
-    std::cout << "Current shot position: (z = " << geometry->zsrc[srcId] << 
-                                       ", x = " << geometry->xsrc[srcId] << ") m\n\n";
 
     std::cout << line << "\n";
     std::cout << stage_info << std::endl;
@@ -111,21 +97,21 @@ void Migration::export_seismic()
 
     # pragma omp parallel for
     for (int index = 0; index < nPoints; index++)
-        image[index] = image[index] / sumPs[index];
+        sumPs[index] = image[index] / sumPs[index];
 
     # pragma omp parallel for    
     for (int index = 0; index < nPoints; index++)
     {
         int i = (int)(index % nz);
 
-        sumPs[index] = 0.0f;    
+        image[index] = 0.0f;    
 
         if((i > 0) && (i < nz-1)) 
-            sumPs[index] = -1.0f*(image[index-1] - 2.0f*image[index] + image[index+1]) * idh2;
+            image[index] = -1.0f*(sumPs[index-1] - 2.0f*sumPs[index] + sumPs[index+1]) * idh2;
     }
 
     std::string output_file = output_folder + "RTM_section_" + std::to_string(nz) + "x" + std::to_string(nx) + ".bin";
-    export_binary_float(output_file, sumPs, nPoints);
+    export_binary_float(output_file, image, nPoints);
 }
 
 __global__ void inject_seismogram(float * Pr, int * rIdx, int * rIdz, float * seismogram, int nr, int tId, int nt, int nzz, float idh2)

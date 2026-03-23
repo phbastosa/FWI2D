@@ -29,7 +29,7 @@ for sId in range(ns):
 
     file = f"seismogram_nt{nt}_nr{nr}_{dt*1e6:.0f}us_shot_{sId+1}.bin" 
 
-    data = pyf.read_binary_matrix(nt, nr, folder + "obs_" + file)  
+    data = pyf.read_binary_matrix(nt, nr, folder + file)  
 
     data *= 1.0 / np.max(np.abs(data)) 
 

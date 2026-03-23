@@ -7,7 +7,7 @@ z_samples = 81
 
 model_spacing = 25.0                # [m]
 
-model_file = ../inputs/models/overthrust_true_81x201_25m.bin 
+model_file = ../inputs/models/overthrust_init_81x201_25m.bin 
 
 #------------------------------------------------------------
 # Geometry --------------------------------------------------
@@ -43,7 +43,7 @@ inv_rbc_varVp = 1000                # [m/s]
 inv_rbc_length = 1000               # [m] 
 
 inv_input_folder = ../inputs/data/
-inv_input_prefix = obs_seismogram_nt2001_nr51_1000us_shot_
+inv_input_prefix = seismogram_nt2001_nr51_1000us_shot_
 
 inv_output_folder = ../outputs/models/
 inv_residuo_folder = ../outputs/residuo/
@@ -56,6 +56,6 @@ mig_rbc_ratio = 200                 # [m]
 mig_rbc_varVp = 1000                # [m/s]
 mig_rbc_length = 1000               # [m] 
 
-mig_input_folder = ../inputs/data/
+mig_input_folder = ../inputs/data/input_RTM_
 mig_input_prefix = seismogram_nt2001_nr51_1000us_shot_
 mig_output_folder = ../outputs/seismic/

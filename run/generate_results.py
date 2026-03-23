@@ -42,7 +42,7 @@ vmax = np.max(model_true)
 
 sId = int(0.5*ns)
 
-dobs = pyf.read_binary_matrix(nt, nr, f"../inputs/data/obs_seismogram_nt{nt}_nr{nr}_{int(dt*1e6)}us_shot_{sId+1}.bin")
+dobs = pyf.read_binary_matrix(nt, nr, f"../inputs/data/seismogram_nt{nt}_nr{nr}_{int(dt*1e6)}us_shot_{sId+1}.bin")
 
 fig, ax = plt.subplots(figsize = (10,3))
 
