@@ -351,6 +351,10 @@ void Inversion::update_model()
     }
 
     expand_boundary(partial1, Vp);
+    cudaMemcpy(d_Vp_rbc, partial2, rbc_matsize*sizeof(float), cudaMemcpyHostToDevice);
+    
+    std::string model_file = output_folder + "model_FWI_iteration_" + std::to_string(iteration) + "_"  + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(dh)) + ".bin";
+    export_binary_float(model_file, partial1, nPoints);
 }
 
 void Inversion::export_convergence()
@@ -359,7 +363,7 @@ void Inversion::export_convergence()
 
     std::ofstream resFile(residuo_path, std::ios::out);
     
-    for (int r = 0; r < max_iteration; r++) 
+    for (int r = 0; r <= max_iteration; r++) 
         resFile << residuo[r] << "\n";
 
     resFile.close();
@@ -369,12 +373,13 @@ void Inversion::export_convergence()
 
 void Inversion::export_final_model()
 {
-    std::string model_file = output_folder + "model_FWI_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(dh)) + ".bin";
+    std::string model_file = output_folder + "final_model_FWI_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(dh)) + ".bin";
     reduce_boundary(Vp, partial1);
     export_binary_float(model_file, partial1, nPoints);
 }
 
-__global__ void inject_adjoint(float * Pr, int * rIdx, int * rIdz, float * seismogram, int nr, int tId, int nt, int nzz, float idh2)
+__global__ void inject_adjoint(float * __restrict__ Pr, const int * __restrict__ rIdx, const int * __restrict__ rIdz, 
+                               const float * __restrict__ seismogram, int nr, int tId, int nt, int nzz, float idh2)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -387,44 +392,53 @@ __global__ void inject_adjoint(float * Pr, int * rIdx, int * rIdz, float * seism
     }
 }
 
-__global__ void build_gradient(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * gradient, float * sumPs, int nxx, int nzz, int nt, float dt, float idh2)
+__global__ void build_gradient(float * __restrict__ Ps, const float * __restrict__ Psold, const float * __restrict__ Pr, 
+                               float * __restrict__ Prold, const float * __restrict__ Vp, float * __restrict__ gradient, 
+                               float * __restrict__ sumPs, int nxx, int nzz, int nt, float dt, float idh2)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
     int i = (int)(index % nzz);
     int j = (int)(index / nzz);
 
+    const int base_j = j*nzz;
+    
+    const int jm4 = base_j - 4*nzz, jm3 = base_j - 3*nzz, jm2 = base_j - 2*nzz, jm1 = base_j - nzz;
+    const int jp4 = base_j + 4*nzz, jp3 = base_j + 3*nzz, jp2 = base_j + 2*nzz, jp1 = base_j + nzz;
+
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
-        float d2Ps_dx2 = (-FDM1*(Psold[i + (j-4)*nzz] + Psold[i + (j+4)*nzz])
-                          +FDM2*(Psold[i + (j-3)*nzz] + Psold[i + (j+3)*nzz])
-                          -FDM3*(Psold[i + (j-2)*nzz] + Psold[i + (j+2)*nzz])
-                          +FDM4*(Psold[i + (j-1)*nzz] + Psold[i + (j+1)*nzz])
-                          -FDM5*(Psold[i + j*nzz]))*idh2;
+        const float vp2 = Vp[index]*Vp[index];
 
-        float d2Ps_dz2 = (-FDM1*(Psold[(i-4) + j*nzz] + Psold[(i+4) + j*nzz])
-                          +FDM2*(Psold[(i-3) + j*nzz] + Psold[(i+3) + j*nzz])
-                          -FDM3*(Psold[(i-2) + j*nzz] + Psold[(i+2) + j*nzz])
-                          +FDM4*(Psold[(i-1) + j*nzz] + Psold[(i+1) + j*nzz])
-                          -FDM5*(Psold[i + j*nzz]))*idh2;
+        float d2Ps_dx2 = (-FDM1*(Psold[i + jm4] + Psold[i + jp4])
+                          +FDM2*(Psold[i + jm3] + Psold[i + jp3])
+                          -FDM3*(Psold[i + jm2] + Psold[i + jp2])
+                          +FDM4*(Psold[i + jm1] + Psold[i + jp1])
+                          -FDM5*(Psold[i + base_j]))*idh2;
+
+        float d2Ps_dz2 = (-FDM1*(Psold[(i-4) + base_j] + Psold[(i+4) + base_j])
+                          +FDM2*(Psold[(i-3) + base_j] + Psold[(i+3) + base_j])
+                          -FDM3*(Psold[(i-2) + base_j] + Psold[(i+2) + base_j])
+                          +FDM4*(Psold[(i-1) + base_j] + Psold[(i+1) + base_j])
+                          -FDM5*(Psold[i + base_j]))*idh2;
         
-        float d2Pr_dx2 = (-FDM1*(Pr[i + (j-4)*nzz] + Pr[i + (j+4)*nzz])
-                          +FDM2*(Pr[i + (j-3)*nzz] + Pr[i + (j+3)*nzz])
-                          -FDM3*(Pr[i + (j-2)*nzz] + Pr[i + (j+2)*nzz])
-                          +FDM4*(Pr[i + (j-1)*nzz] + Pr[i + (j+1)*nzz])
-                          -FDM5*(Pr[i + j*nzz]))*idh2;
+        float d2Pr_dx2 = (-FDM1*(Pr[i + jm4] + Pr[i + jp4])
+                          +FDM2*(Pr[i + jm3] + Pr[i + jp3])
+                          -FDM3*(Pr[i + jm2] + Pr[i + jp2])
+                          +FDM4*(Pr[i + jm1] + Pr[i + jp1])
+                          -FDM5*(Pr[i + base_j]))*idh2;
 
-        float d2Pr_dz2 = (-FDM1*(Pr[(i-4) + j*nzz] + Pr[(i+4) + j*nzz])
-                          +FDM2*(Pr[(i-3) + j*nzz] + Pr[(i+3) + j*nzz])
-                          -FDM3*(Pr[(i-2) + j*nzz] + Pr[(i+2) + j*nzz])
-                          +FDM4*(Pr[(i-1) + j*nzz] + Pr[(i+1) + j*nzz])
-                          -FDM5*(Pr[i + j*nzz]))*idh2;
+        float d2Pr_dz2 = (-FDM1*(Pr[(i-4) + base_j] + Pr[(i+4) + base_j])
+                          +FDM2*(Pr[(i-3) + base_j] + Pr[(i+3) + base_j])
+                          -FDM3*(Pr[(i-2) + base_j] + Pr[(i+2) + base_j])
+                          +FDM4*(Pr[(i-1) + base_j] + Pr[(i+1) + base_j])
+                          -FDM5*(Pr[i + base_j]))*idh2;
         
-        Ps[index] = dt*dt*Vp[index]*Vp[index]*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];    
+        Ps[index] = dt*dt*vp2*(d2Ps_dx2 + d2Ps_dz2) + 2.0f*Psold[index] - Ps[index];    
 
-        Prold[index] = dt*dt*Vp[index]*Vp[index]*(d2Pr_dx2 + d2Pr_dz2) + 2.0f*Pr[index] - Prold[index];
+        Prold[index] = dt*dt*vp2*(d2Pr_dx2 + d2Pr_dz2) + 2.0f*Pr[index] - Prold[index];
 
         atomicAdd(&sumPs[index], Ps[index]*Ps[index]);
-        atomicAdd(&gradient[index], dt*Pr[index]*(d2Ps_dx2 + d2Ps_dz2)*Vp[index]*Vp[index]);
+        atomicAdd(&gradient[index], dt*Pr[index]*(d2Ps_dx2 + d2Ps_dz2)*vp2);
     }
 }

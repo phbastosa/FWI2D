@@ -82,7 +82,11 @@ public:
     void export_convergence();
 };
 
-__global__ void inject_adjoint(float * Pr, int * rIdx, int * rIdz, float * seismogram, int nr, int tId, int nt, int nzz, float idh2);
-__global__ void build_gradient(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * gradient, float * sumPs, int nxx, int nzz, int nt, float dt, float idh2);
+__global__ void inject_adjoint(float * __restrict__ Pr, const int * __restrict__ rIdx, const int * __restrict__ rIdz, 
+                               const float * __restrict__ seismogram, int nr, int tId, int nt, int nzz, float idh2);
+
+__global__ void build_gradient(float * __restrict__ Ps, const float * __restrict__ Psold, const float * __restrict__ Pr, 
+                               float * __restrict__ Prold, const float * __restrict__ Vp, float * __restrict__ gradient, 
+                               float * __restrict__ sumPs, int nxx, int nzz, int nt, float dt, float idh2);
 
 # endif

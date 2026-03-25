@@ -246,7 +246,7 @@ void Modeling::show_information()
     std::cout << "Running shot " << srcId + 1 << " of " << geometry->nsrc << " in total\n\n";
 
     std::cout << "Current shot position: (z = " << geometry->zsrc[srcId] << 
-                                       ", x = " << geometry->xsrc[srcId] << ") m\n";
+                                       ", x = " << geometry->xsrc[srcId] << ") m\n\n";
 }
 
 void Modeling::initialization()
@@ -298,31 +298,41 @@ void Modeling::forward_solver()
     }
 }
 
-__global__ void compute_pressure(float * Vp, float * P, float * Pold, float * wavelet, float * b1d, float * b2d, int sIdx, int sIdz, int tId, int nt, int nb, int nxx, int nzz, float idh2, float dt, bool ABC)
+__global__ void compute_pressure(const float * __restrict__ Vp, float * __restrict__ P, float * __restrict__ Pold, 
+                                 const float * __restrict__ wavelet, const float * __restrict__ b1d, 
+                                 const float * __restrict__ b2d, int sIdx, int sIdz, int tId, 
+                                 int nt, int nb, int nxx, int nzz, float idh2, float dt, bool ABC)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
     int i = (int)(index % nzz);
     int j = (int)(index / nzz);
 
+    const int base_j = j*nzz;
+    
+    const int jm4 = base_j - 4*nzz, jm3 = base_j - 3*nzz, jm2 = base_j - 2*nzz, jm1 = base_j - nzz;
+    const int jp4 = base_j + 4*nzz, jp3 = base_j + 3*nzz, jp2 = base_j + 2*nzz, jp1 = base_j + nzz;
+
     if ((index == 0) && (tId < nt))
         atomicAdd(&P[sIdz + sIdx*nzz], idh2*wavelet[tId]);    
 
     if((i > 3) && (i < nzz-4) && (j > 3) && (j < nxx-4)) 
     {
-        float d2P_dx2 = (-FDM1*(P[i + (j-4)*nzz] + P[i + (j+4)*nzz])
-                         +FDM2*(P[i + (j-3)*nzz] + P[i + (j+3)*nzz])
-                         -FDM3*(P[i + (j-2)*nzz] + P[i + (j+2)*nzz])
-                         +FDM4*(P[i + (j+1)*nzz] + P[i + (j-1)*nzz])
-                         -FDM5*(P[i + j*nzz]))*idh2;
+        const float vp2 = Vp[index]*Vp[index];
 
-        float d2P_dz2 = (-FDM1*(P[(i-4) + j*nzz] + P[(i+4) + j*nzz])
-                         +FDM2*(P[(i-3) + j*nzz] + P[(i+3) + j*nzz])
-                         -FDM3*(P[(i-2) + j*nzz] + P[(i+2) + j*nzz])
-                         +FDM4*(P[(i-1) + j*nzz] + P[(i+1) + j*nzz])
-                         -FDM5*(P[i + j*nzz]))*idh2;
+        float d2P_dx2 = (-FDM1*(P[i + jm4] + P[i + jp4])
+                         +FDM2*(P[i + jm3] + P[i + jp3])
+                         -FDM3*(P[i + jm2] + P[i + jp2])
+                         +FDM4*(P[i + jm1] + P[i + jp1])
+                         -FDM5*(P[i + base_j]))*idh2;
 
-        Pold[index] = dt*dt*Vp[index]*Vp[index]*(d2P_dx2 + d2P_dz2) + 2.0f*P[index] - Pold[index];
+        float d2P_dz2 = (-FDM1*(P[(i-4) + base_j] + P[(i+4) + base_j])
+                         +FDM2*(P[(i-3) + base_j] + P[(i+3) + base_j])
+                         -FDM3*(P[(i-2) + base_j] + P[(i+2) + base_j])
+                         +FDM4*(P[(i-1) + base_j] + P[(i+1) + base_j])
+                         -FDM5*(P[i + base_j]))*idh2;
+
+        Pold[index] = dt*dt*vp2*(d2P_dx2 + d2P_dz2) + 2.0f*P[index] - Pold[index];
         
         if (ABC)
         {
@@ -334,7 +344,7 @@ __global__ void compute_pressure(float * Vp, float * P, float * Pold, float * wa
     }
 }
 
-__global__ void compute_seismogram(float * P, int * rIdx, int * rIdz, float * seismogram, int spread, int tId, int tlag, int nt, int nzz)
+__global__ void compute_seismogram(const float * __restrict__ P, const int * __restrict__ rIdx, const int * __restrict__ rIdz, float * __restrict__ seismogram, int spread, int tId, int tlag, int nt, int nzz)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -342,7 +352,7 @@ __global__ void compute_seismogram(float * P, int * rIdx, int * rIdz, float * se
         seismogram[(tId - tlag) + index*nt] = P[rIdz[index] + rIdx[index]*nzz];    
 }
 
-__device__ float get_boundary_damper(float * b1d, float * b2d, int i, int j, int nxx, int nzz, int nb)
+__device__ float get_boundary_damper(const float * __restrict__ b1d, const float * __restrict__ b2d, int i, int j, int nxx, int nzz, int nb)
 {
     float damper;
 

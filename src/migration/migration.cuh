@@ -37,8 +37,11 @@ public:
     void export_seismic();
 };
 
-__global__ void inject_seismogram(float * Pr, int * rIdx, int * rIdz, float * seismogram, int spread, int tId, int nt, int nzz, float idh2);
+__global__ void inject_seismogram(float * __restrict__ Pr, const int * __restrict__ rIdx, const int * __restrict__ rIdz, 
+                                  const float * __restrict__ seismogram, int nr, int tId, int nt, int nzz, float idh2);
 
-__global__ void RTM(float * Ps, float * Psold, float * Pr, float * Prold, float * Vp, float * image, float * sumPs, int nxx, int nzz, float idh2, float dt);
+__global__ void cross_correlation(float * __restrict__ Ps, const float * __restrict__ Psold, const float * __restrict__ Pr, 
+                                  float * __restrict__ Prold, const float * __restrict__ Vp, float * __restrict__ image, 
+                                  float * __restrict__ sumPs, int nxx, int nzz, float idh2, float dt);
 
 # endif
