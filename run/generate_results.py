@@ -144,9 +144,9 @@ fig.tight_layout()
 plt.savefig("dmig_RTM.png", dpi = 200)
 plt.show()
 
+fmax = float(pyf.catch_parameter(parameters, "max_frequency"))
 
-
-image_file = f"../outputs/seismic/RTM_section_{nz}x{nx}.bin"
+image_file = f"../outputs/seismic/RTM_section_{fmax:.0f}Hz_{nz}x{nx}_{dh:.0f}m.bin"
 
 image = pyf.read_binary_matrix(nz, nx, image_file)
 
@@ -196,7 +196,7 @@ plt.show()
 
 
 
-model_pred_file = "../outputs/models/model_FWI_50Hz_81x201.bin"
+model_pred_file = f"../outputs/models/final_model_FWI_{fmax:.0f}Hz_{nz}x{nx}_{dh:.0f}m.bin"
 
 model_pred = pyf.read_binary_matrix(nz, nx, model_pred_file)
 

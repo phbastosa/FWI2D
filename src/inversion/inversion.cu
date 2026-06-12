@@ -353,7 +353,7 @@ void Inversion::update_model()
     expand_boundary(partial1, Vp);
     cudaMemcpy(d_Vp_rbc, partial2, rbc_matsize*sizeof(float), cudaMemcpyHostToDevice);
     
-    std::string model_file = output_folder + "model_FWI_iteration_" + std::to_string(iteration) + "_"  + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(dh)) + ".bin";
+    std::string model_file = output_folder + "model_FWI_iteration_" + std::to_string(iteration) + "_"  + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(dh)) + "m.bin";
     export_binary_float(model_file, partial1, nPoints);
 }
 
@@ -373,7 +373,7 @@ void Inversion::export_convergence()
 
 void Inversion::export_final_model()
 {
-    std::string model_file = output_folder + "final_model_FWI_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(dh)) + ".bin";
+    std::string model_file = output_folder + "final_model_FWI_" + std::to_string(int(fmax)) + "Hz_" + std::to_string(nz) + "x" + std::to_string(nx) + "_" + std::to_string((int)(dh)) + "m.bin";
     reduce_boundary(Vp, partial1);
     export_binary_float(model_file, partial1, nPoints);
 }

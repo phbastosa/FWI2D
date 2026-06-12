@@ -7,7 +7,7 @@ z_samples = 81
 
 model_spacing = 25.0                # [m]
 
-model_file = ../inputs/models/overthrust_true_81x201_25m.bin 
+model_file = ../inputs/models/overthrust_init_81x201_25m.bin 
 
 #------------------------------------------------------------
 # Geometry --------------------------------------------------
